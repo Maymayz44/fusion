@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use rocket::serde::{Deserialize, Serialize};
-use sqlx::PgConnection;
 use sqlx::{
+  PgConnection,
   prelude::FromRow,
   types::Json,
 };
@@ -9,7 +9,9 @@ use sqlx::{
 use crate::data::Error;
 use crate::data::Queryable;
 
-#[derive(Serialize, Deserialize, FromRow)]
+use super::Source;
+
+#[derive(Serialize, Deserialize, FromRow, Default)]
 pub struct Destination {
   pub id: Option<i32>,
   pub path: String,
@@ -21,16 +23,34 @@ pub struct Destination {
 
 impl Destination {
   pub async fn select_by_path(path: String, conn: &mut PgConnection) -> Result<Self, Error> {
-    Ok(sqlx::query_as::<_, Destination>(
-      " SELECT destinations.id,
+    Ok(sqlx::query_as("
+        SELECT destinations.id,
                destinations.path,
                destinations.protocol,
                destinations.method,
                destinations.headers
         FROM destinations
-        WHERE destinations.path = $1 ")
+        WHERE destinations.path = $1
+      ")
       .bind(path)
       .fetch_one(conn)
+      .await?)
+  }
+
+  pub async fn get_sources(&self, conn: &mut PgConnection) -> Result<Vec<Source>, Error> {
+    Ok(sqlx::query_as("
+        SELECT sources.id,
+               sources.url,
+               sources.body,
+               sources.params,
+               sources.headers
+        FROM destinations_sources
+        INNER JOIN sources
+          ON sources.id = destinations_sources.source_id
+        WHERE destinations_sources.destination_id = $1
+      ")
+      .bind(&self.id)
+      .fetch_all(conn)
       .await?)
   }
 }
@@ -38,23 +58,25 @@ impl Destination {
 impl Queryable for Destination {
   async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error>
   where Self: Sized {
-    Ok(sqlx::query_as::<_, Destination>(
-      " SELECT destinations.id,
+    Ok(sqlx::query_as("
+        SELECT destinations.id,
                destinations.path,
                destinations.protocol,
                destinations.method,
                destinations.headers
         FROM destinations
-        WHERE destinations.id = $1 ")
+        WHERE destinations.id = $1
+      ")
       .bind(id)
       .fetch_one(conn)
       .await?)
   }
 
   async fn insert(&self, conn: &mut PgConnection) -> Result<(), Error> {
-    sqlx::query(
-      " INSERT INTO destinations (path, protocol, method, headers)
-        VALUES ($1, $2, $3, $4) ")
+    sqlx::query("
+        INSERT INTO destinations (path, protocol, method, headers)
+        VALUES ($1, $2, $3, $4)
+      ")
       .bind(&self.path)
       .bind(&self.protocol)
       .bind(&self.method)
@@ -66,12 +88,13 @@ impl Queryable for Destination {
   }
 
   async fn update(&self, conn: &mut PgConnection) -> Result<(), Error> {
-    sqlx::query(
-      " UPDATE destinations
+    sqlx::query("
+        UPDATE destinations
         SET protocol = $1,
             method = $2,
             headers = $3
-        WHERE destinations.path = $4 ")
+        WHERE destinations.path = $4
+      ")
       .bind(&self.protocol)
       .bind(&self.method)
       .bind(Json(&self.headers))
@@ -83,7 +106,10 @@ impl Queryable for Destination {
   }
 
   async fn delete(&self, conn: &mut PgConnection) -> Result<(), Error> {
-    sqlx::query("DELETE FROM destinations WHERE path = $1")
+    sqlx::query("
+        DELETE FROM destinations
+        WHERE destinations.path = $1
+      ")
       .bind(&self.path)
       .execute(conn)
       .await?;
