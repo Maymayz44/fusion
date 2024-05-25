@@ -2,7 +2,6 @@ CREATE TABLE destinations (
   id SERIAL PRIMARY KEY,
   path VARCHAR NOT NULL UNIQUE,
   protocol VARCHAR NOT NULL,
-  method VARCHAR NOT NULL,
   headers JSON NULL
 );
 
