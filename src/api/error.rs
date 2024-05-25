@@ -1,5 +1,6 @@
 use crate::data::Error as DataError;
 use sqlx::Error as SqlxError;
+use reqwest::Error as ReqwestError;
 
 #[derive(Responder)]
 pub enum Error {
@@ -17,5 +18,11 @@ impl From<DataError> for Error {
       DataError::Database(SqlxError::RowNotFound) => Self::NotFound(()),
       _ => Self::InternalServerError(value.to_string())
     }
+  }
+}
+
+impl From<ReqwestError> for Error {
+  fn from(value: ReqwestError) -> Self {
+      Self::InternalServerError(value.to_string())
   }
 }
