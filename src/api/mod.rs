@@ -17,18 +17,15 @@ pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
       Error::InternalServerError(String::from("Could not convert the request path to type `String`")))?
     .replace("\\", "/");
 
-  let dest = Destination::select_by_path(fullpath, &mut conn).await?;
-  let sources = dest.get_sources(&mut conn).await?;
+  let destination = Destination::select_by_path(fullpath, &mut conn).await?;
+  let sources = Value::Array(fetch_sources(destination.get_sources(&mut conn).await?).await?);
 
-  let sources_result = Value::Array(fetch_sources(sources).await?);
-
-  if let Some(filter) = dest.filter {
-    let filtered_result = jq_rs::run(&filter, &sources_result.to_string())?.trim().to_string();
-
-    Ok(Value::from_str(&filtered_result)?)
-  } else {
-    Ok(sources_result)
+  if let Some(filter) = destination.filter {
+    let filtered_result = jq_rs::run(&filter, &sources.to_string())?.trim().to_string();
+    return Ok(Value::from_str(&filtered_result)?);
   }
+
+  Ok(sources)
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Vec<Value>, Error> {
