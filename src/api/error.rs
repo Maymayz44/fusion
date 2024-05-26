@@ -23,6 +23,12 @@ impl From<DataError> for Error {
   }
 }
 
+impl From<SqlxError> for Error {
+  fn from(value: SqlxError) -> Self {
+    Self::from(DataError::from(value))
+  }
+}
+
 impl From<ReqwestError> for Error {
   fn from(value: ReqwestError) -> Self {
     Self::InternalServerError(value.to_string())

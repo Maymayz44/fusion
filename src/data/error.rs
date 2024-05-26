@@ -7,6 +7,8 @@ pub enum Error {
   Env(VarError),
   #[error("An error happened while contacting database: {0}")]
   Database(SqlxError),
+  #[error("Connection pool was already initialized")]
+  ConnPoolInit(()),
   #[error("An error happened: {0}")]
   Other(Box<dyn std::error::Error + Send>),
   #[error("An error happened: {0}")]

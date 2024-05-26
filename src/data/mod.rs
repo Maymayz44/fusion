@@ -1,5 +1,6 @@
 use std::env;
-use sqlx::{postgres::PgConnection, Connection};
+use std::sync::OnceLock;
+use sqlx::{PgPool, Pool, Postgres};
 
 mod error;
 mod queryable;
@@ -8,10 +9,17 @@ pub mod models;
 pub use self::error::Error;
 pub use self::queryable::Queryable;
 
-pub async fn conn() -> Result<PgConnection, Error> {
+pub static POOL: OnceLock<Pool<Postgres>> = OnceLock::new();
+
+pub async fn init_pool() -> Result<(), Error> {
+  if POOL.get().is_some() {
+    return Err(Error::ConnPoolInit(()));
+  }
+
   let database_url = env::var("DATABASE_URL")?;
 
-  let conn = PgConnection::connect(&database_url).await?;
+  let pool = PgPool::connect(&database_url).await?;
+  POOL.get_or_init(|| pool);
 
-  Ok(conn)
+  Ok(())
 }

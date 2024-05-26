@@ -2,14 +2,16 @@ use std::{path::PathBuf, str::FromStr};
 use rocket::serde::json::Value;
 use reqwest::Client;
 
-use crate::data::{conn, models::{Destination, Source}};
+use crate::data::{models::{Destination, Source}, POOL};
 use self::error::Error;
 
 mod error;
 
 #[get("/<path..>")]
 pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
-  let mut conn = conn().await?;
+  let mut conn = POOL.get()
+    .ok_or_else(|| Error::InternalServerError(String::from("")))?
+    .acquire().await?;
 
   let fullpath = String::from("/") + &path
     .into_os_string().into_string()
