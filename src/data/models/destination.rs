@@ -18,6 +18,7 @@ pub struct Destination {
   pub protocol: String,
   #[sqlx(json)]
   pub headers: HashMap<String, String>,
+  pub filter: Option<String>
 }
 
 impl Destination {
@@ -26,7 +27,8 @@ impl Destination {
         SELECT destinations.id,
                destinations.path,
                destinations.protocol,
-               destinations.headers
+               destinations.headers,
+               destinations.filter
         FROM destinations
         WHERE destinations.path = $1
       ")
@@ -61,7 +63,8 @@ impl Queryable for Destination {
         SELECT destinations.id,
                destinations.path,
                destinations.protocol,
-               destinations.headers
+               destinations.headers,
+               destinations.filter
         FROM destinations
         WHERE destinations.id = $1
       ")
@@ -72,12 +75,13 @@ impl Queryable for Destination {
 
   async fn insert(&self, conn: &mut PgConnection) -> Result<(), Error> {
     sqlx::query("
-        INSERT INTO destinations (path, protocol, headers)
-        VALUES ($1, $2, $3)
+        INSERT INTO destinations (path, protocol, headers, filter)
+        VALUES ($1, $2, $3, $4)
       ")
       .bind(&self.path)
       .bind(&self.protocol)
       .bind(Json(&self.headers))
+      .bind(&self.filter)
       .execute(conn)
       .await?;
 
@@ -88,11 +92,13 @@ impl Queryable for Destination {
     sqlx::query("
         UPDATE destinations
         SET protocol = $1,
-            headers = $2
-        WHERE destinations.path = $3
+            headers = $2,
+            filter = $3
+        WHERE destinations.path = $4
       ")
       .bind(&self.protocol)
       .bind(Json(&self.headers))
+      .bind(&self.filter)
       .bind(&self.path)
       .execute(conn)
       .await?;

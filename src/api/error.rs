@@ -1,6 +1,8 @@
 use crate::data::Error as DataError;
 use sqlx::Error as SqlxError;
 use reqwest::Error as ReqwestError;
+use jq_rs::Error as JqError;
+use serde_json::Error as JsonError;
 
 #[derive(Responder)]
 pub enum Error {
@@ -23,6 +25,18 @@ impl From<DataError> for Error {
 
 impl From<ReqwestError> for Error {
   fn from(value: ReqwestError) -> Self {
-      Self::InternalServerError(value.to_string())
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<JqError> for Error {
+  fn from(value: JqError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<JsonError> for Error {
+  fn from(value: JsonError) -> Self {
+    Self::InternalServerError(value.to_string())
   }
 }

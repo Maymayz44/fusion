@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-use rocket::serde::json::{Value, json};
+use std::{path::PathBuf, str::FromStr};
+use rocket::serde::json::Value;
 use reqwest::Client;
-use serde_json::Map;
 
 use crate::data::{conn, models::{Destination, Source}};
 use self::error::Error;
@@ -21,7 +20,15 @@ pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
   let dest = Destination::select_by_path(fullpath, &mut conn).await?;
   let sources = dest.get_sources(&mut conn).await?;
 
-  Ok(Value::Array(fetch_sources(sources).await?))
+  let sources_result = Value::Array(fetch_sources(sources).await?);
+
+  if let Some(filter) = dest.filter {
+    let filtered_result = jq_rs::run(&filter, &sources_result.to_string())?.trim().to_string();
+
+    Ok(Value::from_str(&filtered_result)?)
+  } else {
+    Ok(sources_result)
+  }
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Vec<Value>, Error> {

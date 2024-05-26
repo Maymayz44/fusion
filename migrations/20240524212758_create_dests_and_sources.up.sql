@@ -2,7 +2,8 @@ CREATE TABLE destinations (
   id SERIAL PRIMARY KEY,
   path VARCHAR NOT NULL UNIQUE,
   protocol VARCHAR NOT NULL,
-  headers JSON NULL
+  headers JSON NULL,
+  filter TEXT NULL
 );
 
 CREATE TABLE sources (
