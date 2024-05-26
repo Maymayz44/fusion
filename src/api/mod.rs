@@ -18,7 +18,7 @@ pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
     .replace("\\", "/");
 
   let destination = Destination::select_by_path(fullpath, &mut conn).await?;
-  let sources = Value::Array(fetch_sources(destination.get_sources(&mut conn).await?).await?);
+  let sources = fetch_sources(destination.get_sources(&mut conn).await?).await?;
 
   if let Some(filter) = destination.filter {
     let filtered_result = jq_rs::run(&filter, &sources.to_string())?.trim().to_string();
@@ -28,10 +28,10 @@ pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
   Ok(sources)
 }
 
-async fn fetch_sources(sources: Vec<Source>) -> Result<Vec<Value>, Error> {
+async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   let client = Client::new();
+  
   let mut result = Vec::<Value>::new();
-
   for source in sources {
     result.push(client.get(&source.url)
       .send()
@@ -40,5 +40,5 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Vec<Value>, Error> {
       .await?);
   }
 
-  Ok(result)
+  Ok(Value::Array(result))
 }
