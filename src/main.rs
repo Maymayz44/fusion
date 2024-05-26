@@ -5,7 +5,6 @@ use dotenv::dotenv;
 
 pub mod api;
 pub mod data;
-pub mod filter;
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
