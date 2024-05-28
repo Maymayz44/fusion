@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 use rocket::serde::json::Value;
 use reqwest::Client;
 
-use crate::data::{models::{Destination, Source}, POOL};
+use crate::data::{models::{AuthType, Destination, Source}, POOL};
 use self::error::Error;
 
 mod error;
@@ -35,7 +35,19 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   
   let mut result = Vec::<Value>::new();
   for source in sources {
-    result.push(client.get(&source.url)
+    let mut request = client.get(&source.url);
+
+    match source.auth {
+      AuthType::Basic { username, password } => {
+        request = request.basic_auth(username, Some(password));
+      },
+      AuthType::Bearer { token } => {
+        request = request.bearer_auth(token);
+      },
+      AuthType::None => {},
+    }
+
+    result.push(request
       .send()
       .await?
       .json()

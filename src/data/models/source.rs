@@ -1,21 +1,37 @@
 use std::collections::HashMap;
 use rocket::serde::{Deserialize, Serialize};
 use sqlx::{
-  prelude::FromRow,
-  types::Json
+  types::Json,
+  postgres::PgRow, prelude::FromRow, Row,
 };
 
-use crate::data::{Error, Queryable};
+use crate::data::{Error, Queryable, models::AuthType};
 
-#[derive(Serialize, Deserialize, FromRow)]
+#[derive(Serialize, Deserialize)]
 pub struct Source {
   pub id: Option<i32>,
   pub url: String,
   pub body: String,
-  #[sqlx(json)]
   pub params: HashMap<String, String>,
-  #[sqlx(json)]
   pub headers: HashMap<String, String>,
+  pub auth: AuthType,
+}
+
+impl FromRow<'_, PgRow> for Source {
+  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
+    Ok(Self {
+      id: row.try_get("id")?,
+      url: row.try_get("url")?,
+      body: row.try_get("body")?,
+      params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
+      headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
+      auth: match row.try_get_unchecked("auth_type")? {
+        "basic" => AuthType::Basic { username: row.try_get("auth_username")?, password: row.try_get("auth_password")? },
+        "bearer" => AuthType::Bearer { token: row.try_get("auth_token")? },
+        "none" | _ => AuthType::None,
+      },
+    })
+  }
 }
 
 impl Queryable for Source {
@@ -26,7 +42,11 @@ impl Queryable for Source {
                sources.url,
                sources.body,
                sources.params,
-               sources.headers
+               sources.headers,
+               sources.auth_type,
+               sources.auth_username,
+               sources.auth_password,
+               sources.auth_token
         FROM sources
         WHERE sources.id = $1
       ")
@@ -36,16 +56,25 @@ impl Queryable for Source {
   }
 
   async fn insert(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
-    sqlx::query("
-      INSERT INTO sources (url, body, params, headers)
-      VALUES ($1, $2, $3, $4)
-    ")
-    .bind(&self.url)
-    .bind(&self.body)
-    .bind(Json(&self.params))
-    .bind(Json(&self.headers))
-    .execute(conn)
-    .await?;
+    // let (auth_fields, auth_vars) = match &self.auth {
+    //   AuthType::Basic { username: _, password: _ } => (", auth_username, auth_password".to_string(), "$6, $7".to_string()),
+    //   AuthType::Bearer { token: _ } => (", auth_token".to_string(), ", $6".to_string()),
+    //   AuthType::None => ("".to_string(), "".to_string()),
+    // };
+
+    sqlx::query(&format!("
+        INSERT INTO sources (url, body, params, headers, auth_type, auth_username, auth_password, auth_token)
+        VALUES ($1, $2, $3, $4, $5, $6, $8, $9)
+      "))
+      .bind(&self.url)
+      .bind(&self.body)
+      .bind(Json(&self.params))
+      .bind(Json(&self.headers))
+      .bind(self.auth.to_string())
+      .bind(self.auth.username())
+      .bind(self.auth.password())
+      .bind(self.auth.token())
+      .execute(conn).await?;
 
     Ok(())
   }
@@ -57,12 +86,20 @@ impl Queryable for Source {
           body = $2,
           params = $3,
           headers = $4
-      WHERE sources.id = $5
+          auth_type = $5,
+          auth_username = $6,
+          auth_password = $7,
+          auth_token = $8
+      WHERE sources.id = $9
     ")
     .bind(&self.url)
     .bind(&self.body)
     .bind(Json(&self.params))
     .bind(Json(&self.headers))
+    .bind(self.auth.to_string())
+    .bind(self.auth.username())
+    .bind(self.auth.password())
+    .bind(self.auth.token())
     .bind(&self.id)
     .execute(conn)
     .await?;

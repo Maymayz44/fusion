@@ -43,7 +43,11 @@ impl Destination {
                sources.url,
                sources.body,
                sources.params,
-               sources.headers
+               sources.headers,
+               sources.auth_type,
+               sources.auth_username,
+               sources.auth_password,
+               sources.auth_token
         FROM destinations_sources
         INNER JOIN sources
           ON sources.id = destinations_sources.source_id
