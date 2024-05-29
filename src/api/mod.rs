@@ -35,7 +35,9 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   
   let mut result = Vec::<Value>::new();
   for source in sources {
-    let mut request = client.get(&source.url);
+    let mut request = client
+      .get(&source.url)
+      .query(&source.params);
 
     match source.auth {
       AuthType::Basic { username, password } => {
