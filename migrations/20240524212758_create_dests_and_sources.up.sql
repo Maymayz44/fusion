@@ -1,8 +1,12 @@
+CREATE FUNCTION json_is_hashmap(json_input JSON) RETURNS BOOLEAN
+RETURN (SELECT EVERY(json_typeof(value) = 'string') FROM json_each(json_input));
+
 CREATE TABLE destinations (
   id SERIAL PRIMARY KEY,
   path VARCHAR NOT NULL UNIQUE,
   headers JSON NULL,
-  filter TEXT NULL
+  filter TEXT NULL,
+  CONSTRAINT ck_headers_hashmap CHECK (json_is_hashmap(headers))
 );
 
 CREATE TABLE sources (
@@ -10,7 +14,9 @@ CREATE TABLE sources (
   url VARCHAR NOT NULL,
   headers JSON NULL,
   body TEXT,
-  params JSON NULL
+  params JSON NULL,
+  CONSTRAINT ck_headers_hashmap CHECK (json_is_hashmap(headers)),
+  CONSTRAINT ck_params_hashmap CHECK (json_is_hashmap(params))
 );
 
 CREATE TABLE destinations_sources (
