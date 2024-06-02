@@ -1,4 +1,5 @@
 use rocket::serde::{Deserialize, Serialize};
+use sqlx::{encode::IsNull, postgres::PgTypeInfo, Encode, Postgres, Type};
 
 #[derive(Serialize, Deserialize)]
 pub enum AuthType {
@@ -14,6 +15,20 @@ impl ToString for AuthType {
       Self::Basic { username: _, password: _ } => "basic".to_owned(),
       Self::Bearer { token: _  } => "bearer".to_owned(),
     }
+  }
+}
+
+impl Type<Postgres> for AuthType {
+  fn type_info() -> PgTypeInfo {
+    PgTypeInfo::with_name("auth_type")
+  }
+}
+
+impl Encode<'_, Postgres> for AuthType {
+  fn encode_by_ref(&self, buf: &mut <Postgres as sqlx::database::HasArguments<'_>>::ArgumentBuffer) -> IsNull {
+    buf.extend(self.to_string().as_bytes());
+
+    IsNull::No
   }
 }
 

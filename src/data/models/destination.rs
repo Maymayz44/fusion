@@ -18,7 +18,6 @@ use super::Source;
 pub struct Destination {
   pub id: Option<i32>,
   pub path: String,
-  pub protocol: String,
   pub headers: HashMap<String, String>,
   pub filter: Option<String>,
   pub auth: AuthType,
@@ -29,7 +28,6 @@ impl FromRow<'_, PgRow> for Destination {
     Ok(Self {
       id: row.try_get("id")?,
       path: row.try_get("path")?,
-      protocol: row.try_get("protocol")?,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
       filter: row.try_get("filter")?,
       auth: match row.try_get_unchecked("auth_type")? {
@@ -46,7 +44,6 @@ impl Destination {
     Ok(sqlx::query_as("
         SELECT destinations.id,
                destinations.path,
-               destinations.protocol,
                destinations.headers,
                destinations.filter,
                destinations.auth_type,
@@ -90,7 +87,6 @@ impl Queryable for Destination {
     Ok(sqlx::query_as("
         SELECT destinations.id,
                destinations.path,
-               destinations.protocol,
                destinations.headers,
                destinations.filter,
                destinations.auth_type,
@@ -107,14 +103,13 @@ impl Queryable for Destination {
 
   async fn insert(&self, conn: &mut PgConnection) -> Result<(), Error> {
     sqlx::query("
-        INSERT INTO destinations (path, protocol, headers, filter, auth_type, auth_username, auth_password, auth_token)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO destinations (path, headers, filter, auth_type, auth_username, auth_password, auth_token)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       ")
       .bind(&self.path)
-      .bind(&self.protocol)
       .bind(Json(&self.headers))
       .bind(&self.filter)
-      .bind(&self.auth.to_string())
+      .bind(&self.auth)
       .bind(&self.auth.username())
       .bind(&self.auth.password())
       .bind(&self.auth.token())
@@ -127,19 +122,17 @@ impl Queryable for Destination {
   async fn update(&self, conn: &mut PgConnection) -> Result<(), Error> {
     sqlx::query("
         UPDATE destinations
-        SET protocol = $1,
-            headers = $2,
-            filter = $3,
-            auth_type = $4
-            auth_username = $5,
-            auth_password = $6,
-            auth_token = $7
-        WHERE destinations.path = $8
+        SET headers = $1,
+            filter = $2,
+            auth_type = $3
+            auth_username = $4,
+            auth_password = $5,
+            auth_token = $6
+        WHERE destinations.path = $7
       ")
-      .bind(&self.protocol)
       .bind(Json(&self.headers))
       .bind(&self.filter)
-      .bind(&self.auth.to_string())
+      .bind(&self.auth)
       .bind(&self.auth.username())
       .bind(&self.auth.password())
       .bind(&self.auth.token())
