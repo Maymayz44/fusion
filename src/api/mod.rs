@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 use rocket::serde::json::Value;
-use reqwest::Client;
+use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 
 use crate::data::{models::{AuthType, Destination, Source}, POOL};
 use self::error::Error;
@@ -39,6 +39,10 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
       .get(&source.url)
       .query(&source.params);
 
+    if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
+      request = request.headers(headers);
+    }
+
     match source.auth {
       AuthType::Basic { username, password } => {
         request = request.basic_auth(username, Some(password));
@@ -46,7 +50,7 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
       AuthType::Bearer { token } => {
         request = request.bearer_auth(token);
       },
-      AuthType::None => {},
+      AuthType::None => (),
     }
 
     result.push(request

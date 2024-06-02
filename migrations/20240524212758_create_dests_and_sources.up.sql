@@ -18,4 +18,7 @@ CREATE TABLE destinations_sources (
   id SERIAL PRIMARY KEY,
   destination_id INT REFERENCES destinations(id),
   source_id INT REFERENCES sources(id)
-)
+);
+
+CREATE UNIQUE INDEX ix_destinations_sources 
+ON destinations_sources(destination_id, source_id);
