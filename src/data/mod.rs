@@ -5,6 +5,7 @@ use sqlx::{PgPool, Pool, Postgres};
 mod error;
 mod queryable;
 pub mod models;
+pub mod types;
 
 pub use self::error::Error;
 pub use self::queryable::Queryable;

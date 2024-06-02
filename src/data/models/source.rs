@@ -5,7 +5,7 @@ use sqlx::{
   postgres::PgRow, prelude::FromRow, Row,
 };
 
-use crate::data::{Error, Queryable, models::AuthType};
+use crate::data::{Error, Queryable, types::AuthType};
 
 #[derive(Serialize, Deserialize)]
 pub struct Source {

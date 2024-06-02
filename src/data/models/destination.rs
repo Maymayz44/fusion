@@ -10,7 +10,7 @@ use sqlx::{
 
 use crate::data::Error;
 use crate::data::Queryable;
-use crate::data::models::AuthType;
+use crate::data::types::AuthType;
 
 use super::Source;
 

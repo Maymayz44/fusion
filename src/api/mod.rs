@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 use rocket::serde::json::Value;
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 
-use crate::data::{models::{AuthType, Destination, Source}, POOL};
+use crate::data::{models::{Destination, Source}, POOL, types::AuthType};
 use self::error::Error;
 
 mod error;
