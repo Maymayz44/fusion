@@ -1,4 +1,5 @@
 use crate::data::Error as DataError;
+use rocket::response;
 use sqlx::Error as SqlxError;
 use reqwest::Error as ReqwestError;
 use jq_rs::Error as JqError;
@@ -10,6 +11,8 @@ pub enum Error {
   NotFound(()),
   #[response(status = 400, content_type = "plain")]
   BadRequest(String),
+  #[response(status = 401)]
+  Unauthorized(()),
   #[response(status = 500, content_type = "plain")]
   InternalServerError(String),
 }
