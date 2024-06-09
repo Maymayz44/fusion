@@ -1,3 +1,3 @@
-pub mod auth;
+mod auth;
 
 pub use self::auth::Auth;

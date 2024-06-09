@@ -10,7 +10,6 @@ use sqlx::{
 
 use crate::data::Error;
 use crate::data::Queryable;
-use crate::data::types::AuthType;
 
 use super::Source;
 
@@ -20,7 +19,6 @@ pub struct Destination {
   pub path: String,
   pub headers: HashMap<String, String>,
   pub filter: Option<String>,
-  pub auth: AuthType,
 }
 
 impl FromRow<'_, PgRow> for Destination {
@@ -30,11 +28,6 @@ impl FromRow<'_, PgRow> for Destination {
       path: row.try_get("path")?,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
       filter: row.try_get("filter")?,
-      auth: match row.try_get_unchecked("auth_type")? {
-        "basic" => AuthType::Basic { username: row.try_get("auth_username")?, password: row.try_get("auth_password")? },
-        "bearer" => AuthType::Bearer { token: row.try_get("auth_token")? },
-        "none" | _ => AuthType::None,
-      },
     })
   }
 }
@@ -45,11 +38,7 @@ impl Destination {
         SELECT destinations.id,
                destinations.path,
                destinations.headers,
-               destinations.filter,
-               destinations.auth_type,
-               destinations.auth_username,
-               destinations.auth_password,
-               destinations.auth_token
+               destinations.filter
         FROM destinations
         WHERE destinations.path = $1
       ")
@@ -88,11 +77,7 @@ impl Queryable for Destination {
         SELECT destinations.id,
                destinations.path,
                destinations.headers,
-               destinations.filter,
-               destinations.auth_type,
-               destinations.auth_username,
-               destinations.auth_password,
-               destinations.auth_token
+               destinations.filter
         FROM destinations
         WHERE destinations.id = $1
       ")
@@ -103,16 +88,12 @@ impl Queryable for Destination {
 
   async fn insert(&self, conn: &mut PgConnection) -> Result<(), Error> {
     sqlx::query("
-        INSERT INTO destinations (path, headers, filter, auth_type, auth_username, auth_password, auth_token)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO destinations (path, headers, filter)
+        VALUES ($1, $2, $3)
       ")
       .bind(&self.path)
       .bind(Json(&self.headers))
       .bind(&self.filter)
-      .bind(&self.auth)
-      .bind(&self.auth.username())
-      .bind(&self.auth.password())
-      .bind(&self.auth.token())
       .execute(conn)
       .await?;
 
@@ -123,19 +104,11 @@ impl Queryable for Destination {
     sqlx::query("
         UPDATE destinations
         SET headers = $1,
-            filter = $2,
-            auth_type = $3
-            auth_username = $4,
-            auth_password = $5,
-            auth_token = $6
-        WHERE destinations.path = $7
+            filter = $2
+        WHERE destinations.path = $8
       ")
       .bind(Json(&self.headers))
       .bind(&self.filter)
-      .bind(&self.auth)
-      .bind(&self.auth.username())
-      .bind(&self.auth.password())
-      .bind(&self.auth.token())
       .bind(&self.path)
       .execute(conn)
       .await?;
