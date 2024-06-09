@@ -1,5 +1,4 @@
 use crate::data::Error as DataError;
-use rocket::response;
 use sqlx::Error as SqlxError;
 use reqwest::Error as ReqwestError;
 use jq_rs::Error as JqError;

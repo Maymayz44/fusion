@@ -4,11 +4,13 @@ use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 
 use crate::data::{models::{Destination, Source}, POOL, types::Auth};
 use self::error::Error;
+use self::response::Response;
 
 mod error;
+mod response;
 
 #[get("/<path..>")]
-pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
+pub async fn entrypoint(path: PathBuf) -> Result<Response, Error> {
   let mut conn = POOL.get()
     .ok_or_else(|| Error::InternalServerError(String::from("")))?
     .acquire().await?;
@@ -24,10 +26,10 @@ pub async fn entrypoint(path: PathBuf) -> Result<Value, Error> {
 
   if let Some(filter) = destination.filter {
     let filtered_result = jq_rs::run(&filter, &sources.to_string())?.trim().to_string();
-    return Ok(Value::from_str(&filtered_result)?);
+    return Ok(Response::Json(filtered_result));
   }
 
-  Ok(sources)
+  Ok(Response::Json(sources.to_string()))
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
@@ -50,7 +52,7 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
       Auth::Bearer { token } => {
         request = request.bearer_auth(token);
       },
-      Auth::None | _ => (),
+      Auth::None => (),
     }
 
     result.push(request
