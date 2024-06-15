@@ -44,7 +44,7 @@ impl Queryable for Source {
                sources.auth_password,
                sources.auth_token
         FROM sources
-        WHERE sources.id = $1
+        WHERE sources.id = $1;
       ")
       .bind(id)
       .fetch_one(conn)
@@ -63,7 +63,7 @@ impl Queryable for Source {
           auth_password,
           auth_token
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $8);
       "))
       .bind(&self.url)
       .bind(&self.body)
@@ -89,7 +89,7 @@ impl Queryable for Source {
           auth_username = $6,
           auth_password = $7,
           auth_token = $8
-      WHERE sources.id = $10
+      WHERE sources.id = $10;
     ")
     .bind(&self.url)
     .bind(&self.body)
@@ -109,7 +109,7 @@ impl Queryable for Source {
   async fn delete(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
     sqlx::query("
       DELETE FROM sources
-      WHERE sources.id = $1
+      WHERE sources.id = $1;
     ")
     .bind(&self.id)
     .execute(conn)

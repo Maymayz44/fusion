@@ -1,4 +1,4 @@
-DROP TABLE destinations_sources;
+DROP TABLE destinations__sources;
 
 DROP TABLE sources;
 

@@ -1,5 +1,16 @@
-CREATE FUNCTION json_is_hashmap(json_input JSON) RETURNS BOOLEAN
-RETURN json_typeof((json_each(json_input)).value) = 'string';
+CREATE FUNCTION json_is_hashmap(json_input JSON)
+  RETURNS BOOLEAN
+  LANGUAGE plpgsql
+AS $$
+DECLARE
+  is_hashmap BOOLEAN;
+BEGIN
+  SELECT EVERY(json_typeof(pairs.value) = 'string')
+  INTO is_hashmap
+  FROM json_each(json_input) AS pairs;
+
+  RETURN is_hashmap;
+END; $$;
 
 CREATE DOMAIN STRING_HASHMAP AS JSON
 DEFAULT '{}'::JSON
@@ -22,11 +33,11 @@ CREATE TABLE sources (
   params STRING_HASHMAP NOT NULL
 );
 
-CREATE TABLE destinations_sources (
+CREATE TABLE destinations__sources (
   id SERIAL PRIMARY KEY,
   destination_id INT NOT NULL REFERENCES destinations(id),
   source_id INT NOT NULL REFERENCES sources(id)
 );
 
-CREATE UNIQUE INDEX ix_destinations_sources 
-ON destinations_sources(destination_id, source_id);
+CREATE UNIQUE INDEX ix_destinations__sources 
+ON destinations__sources(destination_id, source_id);

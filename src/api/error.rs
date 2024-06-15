@@ -4,7 +4,7 @@ use reqwest::Error as ReqwestError;
 use jq_rs::Error as JqError;
 use serde_json::Error as JsonError;
 
-#[derive(Responder)]
+#[derive(Responder, Debug)]
 pub enum Error {
   #[response(status = 404)]
   NotFound(()),

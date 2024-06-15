@@ -2,16 +2,16 @@ use std::{path::PathBuf, str::FromStr};
 use rocket::serde::json::Value;
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 
-use crate::data::{models::{Destination, Source}, POOL, types::Auth};
-use self::error::Error;
+use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
+pub use self::error::Error;
 use self::response::Response;
 
 mod error;
 mod response;
 
 #[get("/<path..>")]
-pub async fn entrypoint(path: PathBuf) -> Result<Response, Error> {
-  let mut conn = POOL.get()
+pub async fn entrypoint(path: PathBuf, auth: AuthToken) -> Result<Response, Error> {
+  let mut conn: sqlx::pool::PoolConnection<sqlx::Postgres> = POOL.get()
     .ok_or_else(|| Error::InternalServerError(String::from("")))?
     .acquire().await?;
 
@@ -22,14 +22,15 @@ pub async fn entrypoint(path: PathBuf) -> Result<Response, Error> {
     .replace("\\", "/");
 
   let destination = Destination::select_by_path(fullpath, &mut conn).await?;
+
   let sources = fetch_sources(destination.get_sources(&mut conn).await?).await?;
 
   if let Some(filter) = destination.filter {
     let filtered_result = jq_rs::run(&filter, &sources.to_string())?.trim().to_string();
-    return Ok(Response::Json(filtered_result));
+    return Ok(Response::JsonString(filtered_result));
   }
 
-  Ok(Response::Json(sources.to_string()))
+  Ok(Response::JsonString(sources.to_string()))
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
