@@ -1,6 +1,18 @@
+use axum::{body::Body, response::{IntoResponse, Response as AxumResponse}};
+use reqwest::StatusCode;
 
-#[derive(Responder)]
 pub enum Response {
-  #[response(status = 200, content_type = "json")]
   JsonString(String)
+}
+
+impl IntoResponse for Response {
+  fn into_response(self) -> AxumResponse {
+    match self {
+      Self::JsonString(json) => AxumResponse::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/json")
+        .body(Body::new(json))
+        .unwrap(),
+    }
+  }
 }

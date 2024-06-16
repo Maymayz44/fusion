@@ -1,27 +1,31 @@
-use std::{path::PathBuf, str::FromStr};
-use rocket::serde::json::Value;
+use axum::extract::{Path, Request};
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
+use serde_json::Value;
 
 use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
 pub use self::error::Error;
 use self::response::Response;
+pub use self::bindings::Bindings;
 
 mod error;
 mod response;
+mod bindings;
 
-#[get("/<path..>")]
-pub async fn entrypoint(path: PathBuf, auth: AuthToken) -> Result<Response, Error> {
+pub async fn entrypoint(Path(path): Path<String>) -> Result<Response, Error> {
+  
   let mut conn: sqlx::pool::PoolConnection<sqlx::Postgres> = POOL.get()
     .ok_or_else(|| Error::InternalServerError(String::from("")))?
     .acquire().await?;
 
-  let fullpath = String::from("/") + &path
-    .into_os_string().into_string()
-    .map_err(|_|
-      Error::InternalServerError(String::from("Could not convert the request path to type `String`")))?
-    .replace("\\", "/");
-
-  let destination = Destination::select_by_path(fullpath, &mut conn).await?;
+  let destination = Destination::select_by_path(format!("/{path}"), &mut conn).await?;
+  // let tokens = destination.get_valid_tokens(&mut conn).await?;
+  // if let Some(token_value) = request.headers().get("") {
+  //   if !tokens.iter().any(|token| &token.token == &token_value.to_str().unwrap().to_owned()) {
+  //     return Err(Error::Unauthorized(()));
+  //   }
+  // } else {
+  //   return Err(Error::Unauthorized(()));
+  // }
 
   let sources = fetch_sources(destination.get_sources(&mut conn).await?).await?;
 

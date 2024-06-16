@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use rocket::serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use sqlx::{
   types::Json,
   postgres::PgRow, prelude::FromRow, Row,

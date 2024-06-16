@@ -1,6 +1,5 @@
-use chrono::{Utc};
+use chrono::Utc;
 use rand::{distributions::Alphanumeric, Rng};
-use rocket::request::{FromRequest, Outcome, Request};
 use sqlx::{postgres::PgRow, prelude::FromRow, Row, types::chrono::DateTime};
 
 use crate::data::Queryable;
@@ -29,21 +28,6 @@ impl AuthToken {
       Some(expiration) => expiration > &Utc::now(),
       None => true,
     }
-  }
-}
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for AuthToken {
-  type Error = crate::api::Error;
-
-  async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-    let path = request.uri().path().to_string()[4..].to_owned();
-    
-    Outcome::Success(Self {
-      id: None,
-      token: request.headers().get_one("Authorization").unwrap_or("").to_owned(),
-      expiration: None,
-    })
   }
 }
 

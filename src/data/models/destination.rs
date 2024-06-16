@@ -1,19 +1,14 @@
 use std::collections::HashMap;
 use chrono::Utc;
-use rocket::http::Status;
-use rocket::request::{FromRequest, Outcome, Request};
-use rocket::serde::{Deserialize, Serialize};
-use sqlx::postgres::PgRow;
+use serde::{Serialize, Deserialize};
 use sqlx::{
-  PgConnection,
-  prelude::FromRow,
+  PgConnection, postgres::PgRow,
+  prelude::FromRow, Row,
   types::Json,
-  Row,
 };
 
-use crate::data::{Error, POOL};
+use crate::data::Error;
 use crate::data::Queryable;
-use crate::api::Error as ApiError;
 
 use super::{AuthToken, Source};
 
@@ -83,27 +78,6 @@ impl Destination {
       .bind(&Utc::now())
       .fetch_all(conn)
       .await?)
-  }
-}
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for Destination {
-  type Error = ApiError;
-
-  async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-    let mut conn: sqlx::pool::PoolConnection<sqlx::Postgres> = POOL.get()
-      .ok_or_else(|| Self::Error::InternalServerError(String::from(""))).unwrap()
-      .acquire().await.unwrap();
-    let path = request.uri().path().to_string()[4..].to_owned();
-  
-    let dest = Destination::select_by_path(path, &mut conn).await.unwrap();
-    let tokens = dest.get_valid_tokens(&mut conn).await.unwrap();
-
-    if tokens.iter().any(|token| request.headers().get_one("").unwrap_or("").to_owned() == token.token) {
-      return Outcome::Success(dest);
-    }
-
-    Outcome::Error((Status::Unauthorized, ApiError::Unauthorized(())))
   }
 }
 

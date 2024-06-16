@@ -1,22 +1,24 @@
-#[macro_use]
-extern crate rocket;
-
+use api::Bindings;
 use dotenv::dotenv;
+use axum::{
+  routing::get, Router
+};
+use std::error::Error;
 
 pub mod api;
 pub mod data;
 
-#[rocket::main]
-async fn main() -> Result<(), rocket::Error> {
-  dotenv().ok();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+  dotenv()?;
+  let bindings = Bindings::env();
+  data::init_pool().await?;
 
-  data::init_pool().await
-    .map_err(|err| panic!("Database connection pool could not be initialized due to the following error: {}", err)).unwrap();
+  let app = Router::new()
+    .route(format!("{}/*path", &bindings.path).as_str(), get(api::entrypoint));
 
-  let _rocket = rocket::build()
-  .mount("/api", routes![crate::api::entrypoint])
-  .launch()
-  .await?;
+  let listener = tokio::net::TcpListener::bind(bindings.full_address()).await.unwrap();
+  axum::serve(listener, app).await?;
 
   Ok(())
 }

@@ -1,19 +1,27 @@
 use crate::data::Error as DataError;
+use axum::response::IntoResponse;
 use sqlx::Error as SqlxError;
-use reqwest::Error as ReqwestError;
+use reqwest::{Error as ReqwestError, StatusCode};
 use jq_rs::Error as JqError;
 use serde_json::Error as JsonError;
 
-#[derive(Responder, Debug)]
+#[derive(Debug)]
 pub enum Error {
-  #[response(status = 404)]
   NotFound(()),
-  #[response(status = 400, content_type = "plain")]
   BadRequest(String),
-  #[response(status = 401)]
   Unauthorized(()),
-  #[response(status = 500, content_type = "plain")]
   InternalServerError(String),
+}
+
+impl IntoResponse for Error {
+  fn into_response(self) -> axum::response::Response {
+    match self {
+      Self::NotFound(()) => (StatusCode::NOT_FOUND, String::new()),
+      Self::BadRequest(err) => (StatusCode::BAD_REQUEST, err),
+      Self::Unauthorized(()) => (StatusCode::UNAUTHORIZED, String::new()),
+      Self::InternalServerError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
+    }.into_response()
+  }
 }
 
 impl From<DataError> for Error {

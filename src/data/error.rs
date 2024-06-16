@@ -1,5 +1,6 @@
 use std::env::VarError;
 use sqlx::Error as SqlxError;
+use std::io::Error as StdError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -24,5 +25,11 @@ impl From<VarError> for Error {
 impl From<SqlxError> for Error {
   fn from(value: SqlxError) -> Self {
       Self::Database(value)
+  }
+}
+
+impl Into<StdError> for Error {
+  fn into(self) -> StdError {
+    StdError::other(self.to_string())
   }
 }

@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use rocket::serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use sqlx::{encode::IsNull, postgres::{PgRow, PgTypeInfo}, Encode, FromRow, Postgres, Type, Row};
 
 #[derive(Serialize, Deserialize)]
