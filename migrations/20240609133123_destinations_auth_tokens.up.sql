@@ -3,7 +3,7 @@ ADD COLUMN is_auth BOOLEAN DEFAULT FALSE;
 
 CREATE TABLE auth_tokens (
   id SERIAL PRIMARY KEY,
-  token TEXT NOT NULL,
+  value TEXT NOT NULL UNIQUE,
   expiration TIMESTAMP NULL
 );
 
@@ -14,4 +14,4 @@ CREATE TABLE destinations__auth_tokens (
 );
 
 CREATE UNIQUE INDEX ix_destinations__auth_tokens
-ON destinations__auth_tokens(destination_id, auth_token_id)
+ON destinations__auth_tokens(destination_id, auth_token_id);

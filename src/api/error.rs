@@ -1,5 +1,6 @@
 use crate::data::Error as DataError;
 use axum::response::IntoResponse;
+use http::header::ToStrError;
 use sqlx::Error as SqlxError;
 use reqwest::{Error as ReqwestError, StatusCode};
 use jq_rs::Error as JqError;
@@ -53,6 +54,12 @@ impl From<JqError> for Error {
 
 impl From<JsonError> for Error {
   fn from(value: JsonError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<ToStrError> for Error {
+  fn from(value: ToStrError) -> Self {
     Self::InternalServerError(value.to_string())
   }
 }

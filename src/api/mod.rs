@@ -1,6 +1,8 @@
-use axum::extract::{Path, Request};
+use axum::extract::{FromRequestParts, Path, Request};
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 use serde_json::Value;
+use regex::Regex;
+use sqlx::PgConnection;
 
 use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
 pub use self::error::Error;
@@ -11,24 +13,18 @@ mod error;
 mod response;
 mod bindings;
 
-pub async fn entrypoint(Path(path): Path<String>) -> Result<Response, Error> {
-  
-  let mut conn: sqlx::pool::PoolConnection<sqlx::Postgres> = POOL.get()
+pub async fn entrypoint(request: Request) -> Result<Response, Error> {
+  let (request_parts, _) = request.into_parts();
+  let path = format!("/{}", Path::<String>::from_request_parts(&mut request_parts.clone(), &()).await.unwrap().0);
+  let mut conn = POOL.get()
     .ok_or_else(|| Error::InternalServerError(String::from("")))?
-    .acquire().await?;
+    .acquire().await?.detach();
 
-  let destination = Destination::select_by_path(format!("/{path}"), &mut conn).await?;
-  // let tokens = destination.get_valid_tokens(&mut conn).await?;
-  // if let Some(token_value) = request.headers().get("") {
-  //   if !tokens.iter().any(|token| &token.token == &token_value.to_str().unwrap().to_owned()) {
-  //     return Err(Error::Unauthorized(()));
-  //   }
-  // } else {
-  //   return Err(Error::Unauthorized(()));
-  // }
+  let destination = Destination::select_by_path(path, &mut conn).await?;
+
+  authorize(&request_parts.headers, &destination, &mut conn).await?;
 
   let sources = fetch_sources(destination.get_sources(&mut conn).await?).await?;
-
   if let Some(filter) = destination.filter {
     let filtered_result = jq_rs::run(&filter, &sources.to_string())?.trim().to_string();
     return Ok(Response::JsonString(filtered_result));
@@ -68,4 +64,21 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   }
 
   Ok(Value::Array(result))
+}
+
+async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mut PgConnection) -> Result<(), Error> {
+  let token = AuthToken::select_by_value(
+    Regex::new(r"^Bearer\s\w{32}$").unwrap()
+    .find_iter(headers
+      .get("Authorization")
+      .ok_or(Error::Unauthorized(()))?.to_str()?).next()
+    .ok_or(Error::Unauthorized(()))?.as_str().split(' ').last()
+    .ok_or(Error::Unauthorized(()))?.to_owned(), &mut conn).await?
+    .ok_or(Error::Unauthorized(()))?;
+  
+  if !destination.is_token_for(&token, &mut conn).await? {
+    return Err(Error::Unauthorized(()));
+  }
+
+  Ok(())
 }

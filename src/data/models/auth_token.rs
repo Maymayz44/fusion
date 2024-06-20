@@ -1,12 +1,12 @@
 use chrono::Utc;
 use rand::{distributions::Alphanumeric, Rng};
-use sqlx::{postgres::PgRow, prelude::FromRow, Row, types::chrono::DateTime};
+use sqlx::{postgres::PgRow, prelude::FromRow, types::chrono::DateTime, PgConnection, Row};
 
-use crate::data::Queryable;
+use crate::data::{Error, Queryable};
 
 pub struct AuthToken {
   pub id: Option<i32>,
-  pub token: String,
+  pub value: String,
   pub expiration: Option<DateTime<Utc>>,
 }
 
@@ -14,7 +14,7 @@ impl AuthToken {
   pub fn new(expiration: Option<DateTime<Utc>>) -> Self {
     Self {
       id: None,
-      token: rand::thread_rng()
+      value: rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(32)
         .map(char::from)
@@ -29,24 +29,37 @@ impl AuthToken {
       None => true,
     }
   }
+
+  pub async fn select_by_value(value: String, conn: &mut PgConnection) -> Result<Option<Self>, Error> {
+    Ok(sqlx::query_as("
+        SELECT auth_tokens.id,
+              auth_tokens.value,
+              auth_tokens.expiration
+        FROM auth_tokens
+        WHERE auth_tokens.value = $1;
+      ")
+      .bind(value)
+      .fetch_optional(conn)
+      .await?)
+  }
 }
 
 impl FromRow<'_, PgRow> for AuthToken {
   fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
-      Ok(Self {
-        id: row.try_get("id")?,
-        token: row.try_get("token")?,
-        expiration: row.try_get("expiration")?
-      })
+    Ok(Self {
+      id: row.try_get("id")?,
+      value: row.try_get("value")?,
+      expiration: row.try_get("expiration")?
+    })
   }
 }
 
 impl Queryable for AuthToken {
-  async fn select_by_id(id: i32, conn: &mut sqlx::PgConnection) -> Result<Self, crate::data::Error>
+  async fn select_by_id(id: i32, conn: &mut sqlx::PgConnection) -> Result<Self, Error>
   where Self: Sized {
     Ok(sqlx::query_as("
         SELECT auth_tokens.id,
-              auth_tokens.token,
+              auth_tokens.value,
               auth_tokens.expiration
         FROM auth_tokens
         WHERE auth_tokens.id = $1;
@@ -56,12 +69,12 @@ impl Queryable for AuthToken {
       .await?)
   }
 
-  async fn insert(&self, conn: &mut sqlx::PgConnection) -> Result<(), crate::data::Error> {
+  async fn insert(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
     sqlx::query("
-        INSERT INTO auth_tokens (token, expiration)
+        INSERT INTO auth_tokens (value, expiration)
         VALUES ($1, $2);
       ")
-      .bind(&self.token)
+      .bind(&self.value)
       .bind(&self.expiration)
       .execute(conn)
       .await?;
@@ -69,14 +82,14 @@ impl Queryable for AuthToken {
     Ok(())
   }
 
-  async fn update(&self, conn: &mut sqlx::PgConnection) -> Result<(), crate::data::Error> {
+  async fn update(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
     sqlx::query("
         UPDATE auth_tokens
-        SET token = $1,
+        SET value = $1,
             expiration = $2
         WHERE auth_tokens.id = $3;
       ")
-      .bind(&self.token)
+      .bind(&self.value)
       .bind(&self.expiration)
       .bind(&self.id)
       .execute(conn)
@@ -85,7 +98,7 @@ impl Queryable for AuthToken {
     Ok(())
   }
 
-  async fn delete(&self, conn: &mut sqlx::PgConnection) -> Result<(), crate::data::Error> {
+  async fn delete(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
     sqlx::query("
         DELETE FROM auth_tokens
         WHERE auth_tokens.id = $1;

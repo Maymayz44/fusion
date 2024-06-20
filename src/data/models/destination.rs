@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use sqlx::{
   PgConnection, postgres::PgRow,
@@ -61,23 +60,20 @@ impl Destination {
       .await?)
   }
 
-  pub async fn get_valid_tokens(&self, conn: &mut PgConnection) -> Result<Vec<AuthToken>, Error> {
-    Ok(sqlx::query_as("
-        SELECT auth_tokens.id,
-               auth_tokens.token,
-               auth_tokens.expiration
-        FROM destinations
-        INNER JOIN destinations__auth_tokens
-          ON destinations__auth_tokens.destination_id = destinations.id
-        INNER JOIN auth_tokens
-          ON auth_tokens.id = destinations__auth_tokens.auth_token_id
-        WHERE destinations.path = $1
-          AND auth_tokens.expiration > $2
+  pub async fn is_token_for(&self, auth_token: &AuthToken, conn: &mut PgConnection) -> Result<bool, Error> {
+    match sqlx::query("
+        SELECT destinations__auth_tokens.id
+        FROM destinations__auth_tokens
+        WHERE destinations__auth_tokens.destination_id = $1
+          AND destinations__auth_tokens.auth_token_id = $2;
       ")
       .bind(&self.id)
-      .bind(&Utc::now())
-      .fetch_all(conn)
-      .await?)
+      .bind(&auth_token.id)
+      .fetch_optional(conn)
+      .await? {
+      Some(_) => Ok(auth_token.is_valid()),
+      None => Ok(false),
+    }
   }
 }
 
