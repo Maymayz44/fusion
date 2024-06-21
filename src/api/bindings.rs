@@ -10,9 +10,9 @@ pub struct Bindings {
 
 impl Bindings {
   pub fn env() -> Self {
-    let address = env::var("BIND_ADDRESS").unwrap();
-    let port = env::var("BIND_PORT").unwrap().parse::<u16>().unwrap();
-    let path = env::var("BIND_PATH").unwrap();
+    let address = env::var("API_BIND_ADDRESS").unwrap();
+    let port = env::var("API_BIND_PORT").unwrap().parse::<u16>().unwrap();
+    let path = env::var("API_BIND_PATH").unwrap();
     
     assert!(Regex::new(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$").unwrap().is_match(&address));
 
