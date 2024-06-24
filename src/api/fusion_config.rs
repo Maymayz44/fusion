@@ -2,13 +2,13 @@ use std::{env, net::Ipv4Addr, str::FromStr};
 
 use regex::Regex;
 
-pub struct Bindings {
+pub struct FusionConfig {
   pub address: Ipv4Addr,
   pub port: u16,
   pub path: String,
 }
 
-impl Bindings {
+impl FusionConfig {
   pub fn env() -> Self {
     let address = env::var("API_BIND_ADDRESS").unwrap();
     let port = env::var("API_BIND_PORT").unwrap().parse::<u16>().unwrap();
