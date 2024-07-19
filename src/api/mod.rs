@@ -75,20 +75,21 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   let mut handles: Vec<JoinHandle<()>> = vec![];
   let mut i = 0;
   for source in sources {
-    let client = Client::new();
-    let results = Arc::clone(&results_ref);
-
     let j = i.clone();
     i += 1;
-
+    
+    let results = Arc::clone(&results_ref);
     handles.push(task::spawn(async move {
+      let client = Client::new();
+
+      let result = (j, client.get(&source.url)
+        .send()
+        .await.unwrap()
+        .json()
+        .await.unwrap());
+
       println!("{}", j);
-      results.write().await
-        .push((j, client.get(&source.url)
-          .send()
-          .await.unwrap()
-          .json()
-          .await.unwrap()));
+      results.write().await.push(result);
     }));
   }
 
