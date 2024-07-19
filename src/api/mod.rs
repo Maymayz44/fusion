@@ -1,8 +1,11 @@
+use std::{collections::HashMap, sync::Arc};
+
 use axum::extract::{FromRequestParts, Path, Request};
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 use serde_json::Value;
 use regex::Regex;
 use sqlx::PgConnection;
+use tokio::{sync::RwLock, task::{self, JoinHandle}};
 
 use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
 pub use self::error::Error;
@@ -33,37 +36,69 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
   Ok(Response::JsonString(sources.to_string()))
 }
 
-async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
-  let client = Client::new();
+// async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
+//   let client = Client::new();
   
-  let mut result = Vec::<Value>::new();
+//   let mut result = Vec::<Value>::new();
+//   for source in sources {
+//     let mut request = client
+//       .get(&source.url)
+//       .query(&source.params);
+
+//     if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
+//       request = request.headers(headers);
+//     }
+
+//     match source.auth {
+//       Auth::Basic { username, password } => {
+//         request = request.basic_auth(username, Some(password));
+//       },
+//       Auth::Bearer { token } => {
+//         request = request.bearer_auth(token);
+//       },
+//       Auth::None => (),
+//     }
+
+//     result.push(request
+//       .send()
+//       .await?
+//       .json()
+//       .await?);
+//   }
+
+//   Ok(Value::Array(result))
+// }
+
+async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
+  let results_ref = Arc::new(RwLock::new(Vec::<(u16, Value)>::new()));
+
+  let mut handles: Vec<JoinHandle<()>> = vec![];
+  let mut i = 0;
   for source in sources {
-    let mut request = client
-      .get(&source.url)
-      .query(&source.params);
+    let client = Client::new();
+    let results = Arc::clone(&results_ref);
 
-    if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
-      request = request.headers(headers);
-    }
+    let j = i.clone();
+    i += 1;
 
-    match source.auth {
-      Auth::Basic { username, password } => {
-        request = request.basic_auth(username, Some(password));
-      },
-      Auth::Bearer { token } => {
-        request = request.bearer_auth(token);
-      },
-      Auth::None => (),
-    }
-
-    result.push(request
-      .send()
-      .await?
-      .json()
-      .await?);
+    handles.push(task::spawn(async move {
+      println!("{}", j);
+      results.write().await
+        .push((j, client.get(&source.url)
+          .send()
+          .await.unwrap()
+          .json()
+          .await.unwrap()));
+    }));
   }
 
-  Ok(Value::Array(result))
+  for handle in handles {
+    handle.await?;
+  }
+
+  let mut results = results_ref.clone().read().await.to_vec(); 
+  results.sort_by(|a, b| a.0.cmp(&b.0));
+  Ok(Value::Array(results.iter().map(|result| result.clone().1).collect()))
 }
 
 async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mut PgConnection) -> Result<(), Error> {
