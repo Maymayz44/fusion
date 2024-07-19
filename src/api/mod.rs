@@ -7,11 +7,11 @@ use sqlx::PgConnection;
 use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
 pub use self::error::Error;
 use self::response::Response;
-pub use self::bindings::Bindings;
+pub use self::fusion_config::FusionConfig;
 
 mod error;
 mod response;
-mod bindings;
+mod fusion_config;
 
 pub async fn entrypoint(request: Request) -> Result<Response, Error> {
   let (request_parts, _) = request.into_parts();
