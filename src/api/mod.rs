@@ -1,13 +1,13 @@
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
+use std::{sync::Arc, time::SystemTime};
 
 use axum::extract::{FromRequestParts, Path, Request};
-use reqwest::{header::{HeaderMap, HeaderValue}, Client};
+use reqwest::{header::HeaderMap, Client};
 use serde_json::Value;
 use regex::Regex;
 use sqlx::PgConnection;
 use tokio::{sync::RwLock, task::{self, JoinHandle}};
 
-use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
+use crate::data::{models::{AuthToken, Destination, Source}, POOL};
 pub use self::error::Error;
 use self::response::Response;
 pub use self::fusion_config::FusionConfig;
