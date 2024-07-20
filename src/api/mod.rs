@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use axum::extract::{FromRequestParts, Path, Request};
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 use serde_json::Value;
@@ -37,7 +39,10 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   let client = Client::new();
   
   let mut result = Vec::<Value>::new();
+  let timer = SystemTime::now();
   for source in sources {
+    println!("Sending request for url: ({})", &source.url);
+
     let mut request = client
       .get(&source.url)
       .query(&source.params);
@@ -61,6 +66,8 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
       .await?
       .json()
       .await?);
+
+    println!("Recived response for url: ({}), took {} ms", &source.url, timer.elapsed().unwrap().as_millis());
   }
 
   Ok(Value::Array(result))
