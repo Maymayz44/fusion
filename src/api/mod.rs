@@ -1,12 +1,13 @@
-use std::time::SystemTime;
+use std::{sync::Arc, time::SystemTime};
 
 use axum::extract::{FromRequestParts, Path, Request};
-use reqwest::{header::{HeaderMap, HeaderValue}, Client};
+use reqwest::{header::HeaderMap, Client};
 use serde_json::Value;
 use regex::Regex;
 use sqlx::PgConnection;
+use tokio::{sync::RwLock, task::{self, JoinHandle}};
 
-use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
+use crate::data::{models::{AuthToken, Destination, Source}, POOL};
 pub use self::error::Error;
 use self::response::Response;
 pub use self::fusion_config::FusionConfig;
@@ -36,41 +37,33 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
-  let client = Client::new();
-  
-  let mut result = Vec::<Value>::new();
-  let timer = SystemTime::now();
+  let mut handles: Vec<JoinHandle<Result<Value, Error>>> = vec![];
+  let timer = Arc::new(SystemTime::now());
+
   for source in sources {
-    println!("Sending request for url: ({})", &source.url);
+    let timer = timer.clone();
 
-    let mut request = client
-      .get(&source.url)
-      .query(&source.params);
+    handles.push(task::spawn(async move {
+      println!("Sending request for url: ({})", &source.url);
 
-    if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
-      request = request.headers(headers);
-    }
+      let client = Client::new();
+      let result = client
+        .get(&source.url)
+        .send().await?
+        .json().await?;
 
-    match source.auth {
-      Auth::Basic { username, password } => {
-        request = request.basic_auth(username, Some(password));
-      },
-      Auth::Bearer { token } => {
-        request = request.bearer_auth(token);
-      },
-      Auth::None => (),
-    }
+      println!("Recieved response for url: ({}), took {} ms", &source.url, timer.elapsed().unwrap().as_millis());
 
-    result.push(request
-      .send()
-      .await?
-      .json()
-      .await?);
-
-    println!("Recived response for url: ({}), took {} ms", &source.url, timer.elapsed().unwrap().as_millis());
+      Ok(result)
+    }));
   }
 
-  Ok(Value::Array(result))
+  let mut results = Vec::<Value>::new();
+  for handle in handles {
+    results.push(handle.await??);
+  }
+
+  Ok(Value::Array(results))
 }
 
 async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mut PgConnection) -> Result<(), Error> {

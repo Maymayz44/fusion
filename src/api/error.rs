@@ -5,6 +5,7 @@ use sqlx::Error as SqlxError;
 use reqwest::{Error as ReqwestError, StatusCode};
 use jq_rs::Error as JqError;
 use serde_json::Error as JsonError;
+use tokio::task::JoinError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -60,6 +61,12 @@ impl From<JsonError> for Error {
 
 impl From<ToStrError> for Error {
   fn from(value: ToStrError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<JoinError> for Error {
+  fn from(value: JoinError) -> Self {
     Self::InternalServerError(value.to_string())
   }
 }
