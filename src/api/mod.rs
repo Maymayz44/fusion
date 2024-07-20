@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use axum::extract::{FromRequestParts, Path, Request};
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
@@ -36,50 +36,21 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
   Ok(Response::JsonString(sources.to_string()))
 }
 
-// async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
-//   let client = Client::new();
-  
-//   let mut result = Vec::<Value>::new();
-//   for source in sources {
-//     let mut request = client
-//       .get(&source.url)
-//       .query(&source.params);
-
-//     if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
-//       request = request.headers(headers);
-//     }
-
-//     match source.auth {
-//       Auth::Basic { username, password } => {
-//         request = request.basic_auth(username, Some(password));
-//       },
-//       Auth::Bearer { token } => {
-//         request = request.bearer_auth(token);
-//       },
-//       Auth::None => (),
-//     }
-
-//     result.push(request
-//       .send()
-//       .await?
-//       .json()
-//       .await?);
-//   }
-
-//   Ok(Value::Array(result))
-// }
-
 async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
   let results_ref = Arc::new(RwLock::new(Vec::<(u16, Value)>::new()));
 
   let mut handles: Vec<JoinHandle<()>> = vec![];
   let mut i = 0;
+  let timer = Arc::new(SystemTime::now());
   for source in sources {
     let j = i.clone();
     i += 1;
     
     let results = Arc::clone(&results_ref);
+    let timer = timer.clone();
     handles.push(task::spawn(async move {
+      println!("Sending request for url: ({})", &source.url);
+
       let client = Client::new();
 
       let result = (j, client.get(&source.url)
@@ -88,8 +59,9 @@ async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
         .json()
         .await.unwrap());
 
-      println!("{}", j);
       results.write().await.push(result);
+
+      println!("Recieved response for url: ({}), took {} ms", &source.url, timer.elapsed().unwrap().as_millis());
     }));
   }
 
