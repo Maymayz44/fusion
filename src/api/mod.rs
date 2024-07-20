@@ -37,41 +37,33 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
 }
 
 async fn fetch_sources(sources: Vec<Source>) -> Result<Value, Error> {
-  let results_ref = Arc::new(RwLock::new(Vec::<(u16, Value)>::new()));
-
-  let mut handles: Vec<JoinHandle<()>> = vec![];
-  let mut i = 0;
+  let mut handles: Vec<JoinHandle<Result<Value, Error>>> = vec![];
   let timer = Arc::new(SystemTime::now());
+
   for source in sources {
-    let j = i.clone();
-    i += 1;
-    
-    let results = Arc::clone(&results_ref);
     let timer = timer.clone();
+
     handles.push(task::spawn(async move {
       println!("Sending request for url: ({})", &source.url);
 
       let client = Client::new();
-
-      let result = (j, client.get(&source.url)
-        .send()
-        .await.unwrap()
-        .json()
-        .await.unwrap());
-
-      results.write().await.push(result);
+      let result = client
+        .get(&source.url)
+        .send().await?
+        .json().await?;
 
       println!("Recieved response for url: ({}), took {} ms", &source.url, timer.elapsed().unwrap().as_millis());
+
+      Ok(result)
     }));
   }
 
+  let mut results = Vec::<Value>::new();
   for handle in handles {
-    handle.await?;
+    results.push(handle.await??);
   }
 
-  let mut results = results_ref.clone().read().await.to_vec(); 
-  results.sort_by(|a, b| a.0.cmp(&b.0));
-  Ok(Value::Array(results.iter().map(|result| result.clone().1).collect()))
+  Ok(Value::Array(results))
 }
 
 async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mut PgConnection) -> Result<(), Error> {

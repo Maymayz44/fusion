@@ -67,6 +67,6 @@ impl From<ToStrError> for Error {
 
 impl From<JoinError> for Error {
   fn from(value: JoinError) -> Self {
-      Self::InternalServerError(value.to_string())
+    Self::InternalServerError(value.to_string())
   }
 }
