@@ -1,3 +1,5 @@
+use std::time::SystemTimeError;
+
 use crate::data::Error as DataError;
 use axum::response::IntoResponse;
 use http::header::ToStrError;
@@ -6,6 +8,7 @@ use reqwest::{Error as ReqwestError, StatusCode};
 use jq_rs::Error as JqError;
 use serde_json::Error as JsonError;
 use tokio::task::JoinError;
+use regex::Error as RegexError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -67,6 +70,18 @@ impl From<ToStrError> for Error {
 
 impl From<JoinError> for Error {
   fn from(value: JoinError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<SystemTimeError> for Error {
+  fn from(value: SystemTimeError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<RegexError> for Error {
+  fn from(value: RegexError) -> Self {
     Self::InternalServerError(value.to_string())
   }
 }

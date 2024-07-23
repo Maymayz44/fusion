@@ -42,7 +42,8 @@ impl Queryable for Source {
                sources.auth_type,
                sources.auth_username,
                sources.auth_password,
-               sources.auth_token
+               sources.auth_token,
+               sources.auth_param
         FROM sources
         WHERE sources.id = $1;
       ")
@@ -61,7 +62,8 @@ impl Queryable for Source {
           auth_type,
           auth_username,
           auth_password,
-          auth_token
+          auth_token,
+          auth_param
         )
         VALUES ($1, $2, $3, $4, $5, $6, $8);
       "))
@@ -73,6 +75,7 @@ impl Queryable for Source {
       .bind(self.auth.username())
       .bind(self.auth.password())
       .bind(self.auth.token())
+      .bind(Json(self.auth.param()))
       .execute(conn).await?;
 
     Ok(())
@@ -88,7 +91,8 @@ impl Queryable for Source {
           auth_type = $5,
           auth_username = $6,
           auth_password = $7,
-          auth_token = $8
+          auth_token = $8,
+          auth_param = $9
       WHERE sources.id = $10;
     ")
     .bind(&self.url)
@@ -99,6 +103,7 @@ impl Queryable for Source {
     .bind(self.auth.username())
     .bind(self.auth.password())
     .bind(self.auth.token())
+    .bind(Json(self.auth.param()))
     .bind(&self.id)
     .execute(conn)
     .await?;

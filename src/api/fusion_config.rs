@@ -18,8 +18,8 @@ impl FusionConfig {
 
     Self {
       address: Ipv4Addr::from_str(&address).unwrap(),
-      port: port,
-      path: path,
+      port,
+      path,
     }
   }
 

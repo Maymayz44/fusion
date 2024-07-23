@@ -46,7 +46,8 @@ impl Destination {
                sources.auth_type,
                sources.auth_username,
                sources.auth_password,
-               sources.auth_token
+               sources.auth_token,
+               sources.auth_param
         FROM destinations
         INNER JOIN destinations__sources
           ON destinations__sources.destination_id = destinations.id
