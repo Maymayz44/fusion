@@ -1,8 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use serde::{Serialize, Deserialize};
 use sqlx::{
-  types::Json,
-  postgres::PgRow, prelude::FromRow, Row,
+  postgres::{types::PgInterval, PgRow}, prelude::FromRow, types::Json, Row
 };
 
 use crate::data::{Error, Queryable, types::Auth};
@@ -15,6 +14,7 @@ pub struct Source {
   pub params: HashMap<String, String>,
   pub headers: HashMap<String, String>,
   pub auth: Auth,
+  pub timeout: Option<Duration>
 }
 
 impl FromRow<'_, PgRow> for Source {
@@ -26,6 +26,8 @@ impl FromRow<'_, PgRow> for Source {
       params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
       auth: Auth::from_row(row)?,
+      timeout: row.try_get::<Option<PgInterval>, _>("timeout")?
+        .map(|interval| Duration::from_micros(interval.microseconds as u64))
     })
   }
 }
@@ -43,7 +45,8 @@ impl Queryable for Source {
                sources.auth_username,
                sources.auth_password,
                sources.auth_token,
-               sources.auth_param
+               sources.auth_param,
+               sources.timeout
         FROM sources
         WHERE sources.id = $1;
       ")
@@ -63,9 +66,10 @@ impl Queryable for Source {
           auth_username,
           auth_password,
           auth_token,
-          auth_param
+          auth_param,
+          timeout
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $8);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
       "))
       .bind(&self.url)
       .bind(&self.body)
@@ -76,6 +80,7 @@ impl Queryable for Source {
       .bind(self.auth.password())
       .bind(self.auth.token())
       .bind(Json(self.auth.param()))
+      .bind(&self.timeout)
       .execute(conn).await?;
 
     Ok(())
@@ -92,8 +97,9 @@ impl Queryable for Source {
           auth_username = $6,
           auth_password = $7,
           auth_token = $8,
-          auth_param = $9
-      WHERE sources.id = $10;
+          auth_param = $9,
+          timeout = $10
+      WHERE sources.id = $11;
     ")
     .bind(&self.url)
     .bind(&self.body)
@@ -104,6 +110,7 @@ impl Queryable for Source {
     .bind(self.auth.password())
     .bind(self.auth.token())
     .bind(Json(self.auth.param()))
+    .bind(&self.timeout)
     .bind(&self.id)
     .execute(conn)
     .await?;

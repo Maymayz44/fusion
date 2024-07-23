@@ -59,6 +59,10 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
       if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
         request = request.headers(headers);
       }
+
+      if let Some(timeout) = source.timeout.clone() {
+        request = request.timeout(timeout)
+      }
   
       match &source.auth {
         Auth::Basic { username, password } => request = request.basic_auth(username, Some(password)),
@@ -67,13 +71,20 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
         Auth::None => (),
       }
 
-      let response = request.send().await?;
+      let response = match request.send().await {
+        Ok(response) => Ok(response),
+        Err(error) => if error.is_timeout() {
+          Err(Error::BadRequest(String::from(format!("Request timeout for source: ({})", &source.url))))
+        } else {
+          Err(Error::InternalServerError(error.to_string()))
+        }
+      }?;
 
       println!("Recieved response for url: ({}), took {} ms", &source.url, timer.elapsed()?.as_millis());
       
       match response.status() {
         StatusCode::OK => Ok(response.json().await?),
-        _ => Err(Error::BadRequest(String::from(format!("Recieved bad response from source: ({})\nError code {}", &source.url, response.status()))))
+        _ => Err(Error::InternalServerError(String::from(format!("Recieved bad response from source: ({})\nError code {}", &source.url, response.status()))))
       }
     }));
   }

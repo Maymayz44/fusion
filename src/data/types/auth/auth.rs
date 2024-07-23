@@ -61,10 +61,10 @@ impl Type<Postgres> for Auth {
 }
 
 impl Encode<'_, Postgres> for Auth {
-  fn encode_by_ref(&self, buf: &mut <Postgres as sqlx::database::HasArguments<'_>>::ArgumentBuffer) -> IsNull {
+  fn encode_by_ref(&self, buf: &mut <Postgres as sqlx::Database>::ArgumentBuffer<'_>) -> Result<IsNull, sqlx::error::BoxDynError> {
     buf.extend(self.to_string().as_bytes());
 
-    IsNull::No
+    Ok(IsNull::No)
   }
 }
 
