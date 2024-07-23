@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
-use serde_json::Value;
 use sqlx::{encode::IsNull, postgres::{PgRow, PgTypeInfo}, types::Json, Encode, FromRow, Postgres, Row, Type};
-use crate::data::Error;
 
 #[derive(Serialize, Deserialize)]
 pub enum Auth {
@@ -45,18 +43,18 @@ impl Auth {
 
 impl ToString for Auth {
   fn to_string(&self) -> String {
-    match self {
-      Self::None => String::from("none"),
-      Self::Basic { username: _, password: _ } => String::from("basic"),
-      Self::Bearer { token: _ } => String::from("bearer"),
-      Self::Param(_, _) => String::from("param")
-    }
+    String::from(match self {
+      Self::None => "none",
+      Self::Basic { username: _, password: _ } => "basic",
+      Self::Bearer { token: _ } => "bearer",
+      Self::Param(_, _) => "param",
+    })
   }
 }
 
 impl Type<Postgres> for Auth {
   fn type_info() -> PgTypeInfo {
-    PgTypeInfo::with_name("auth_type")
+    PgTypeInfo::with_name("auth")
   }
 }
 
