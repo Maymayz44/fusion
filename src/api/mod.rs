@@ -8,7 +8,7 @@ use regex::Regex;
 use sqlx::PgConnection;
 use tokio::task::{self, JoinHandle};
 
-use crate::data::{models::{AuthToken, Destination, Source}, types::Auth, POOL};
+use crate::data::{models::{AuthToken, Destination, Source}, types::{Auth, Body}, POOL};
 pub use self::error::Error;
 use self::response::Response;
 pub use self::fusion_config::FusionConfig;
@@ -64,11 +64,17 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
         request = request.timeout(timeout)
       }
   
-      match &source.auth {
+      match source.auth {
         Auth::Basic { username, password } => request = request.basic_auth(username, Some(password)),
         Auth::Bearer { token } => request = request.bearer_auth(token),
         Auth::Param(key, value) => request = request.query(&[(key, value)]),
         Auth::None => (),
+      }
+
+      match source.body {
+        Body::Text(text) => request = request.body(text),
+        Body::Json(json) => request = request.json(&json),
+        Body::None => (),
       }
 
       let response = match request.send().await {

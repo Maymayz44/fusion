@@ -31,6 +31,6 @@ DROP CONSTRAINT ck_auth;
 ALTER TABLE sources
 ADD CONSTRAINT ck_auth CHECK (
   (auth_type = 'basic') = (auth_username IS NOT NULL AND auth_password IS NOT NULL)
-    AND (auth_type = 'bearer') = (auth_token IS NOT NULL)
-    AND (auth_type = 'param') = (auth_param IS NOT NULL)
+  AND (auth_type = 'bearer') = (auth_token IS NOT NULL)
+  AND (auth_type = 'param') = (auth_param IS NOT NULL)
 );

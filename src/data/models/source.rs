@@ -4,17 +4,17 @@ use sqlx::{
   postgres::{types::PgInterval, PgRow}, prelude::FromRow, types::Json, Row
 };
 
-use crate::data::{Error, Queryable, types::Auth};
+use crate::data::{types::{Auth, Body}, Error, Queryable};
 
 #[derive(Serialize, Deserialize)]
 pub struct Source {
   pub id: Option<i32>,
   pub url: String,
-  pub body: String,
   pub params: HashMap<String, String>,
   pub headers: HashMap<String, String>,
   pub auth: Auth,
-  pub timeout: Option<Duration>
+  pub timeout: Option<Duration>,
+  pub body: Body,
 }
 
 impl FromRow<'_, PgRow> for Source {
@@ -22,12 +22,12 @@ impl FromRow<'_, PgRow> for Source {
     Ok(Self {
       id: row.try_get("id")?,
       url: row.try_get("url")?,
-      body: row.try_get("body")?,
       params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
       auth: Auth::from_row(row)?,
       timeout: row.try_get::<Option<PgInterval>, _>("timeout")?
-        .map(|interval| Duration::from_micros(interval.microseconds as u64))
+        .map(|interval| Duration::from_micros(interval.microseconds as u64)),
+      body: Body::from_row(row)?,
     })
   }
 }
@@ -38,7 +38,6 @@ impl Queryable for Source {
     Ok(sqlx::query_as::<_, Self>("
         SELECT sources.id,
                sources.url,
-               sources.body,
                sources.params,
                sources.headers,
                sources.auth_type,
@@ -46,7 +45,10 @@ impl Queryable for Source {
                sources.auth_password,
                sources.auth_token,
                sources.auth_param,
-               sources.timeout
+               sources.timeout,
+               sources.body_type,
+               sources.body_text,
+               sources.body_json
         FROM sources
         WHERE sources.id = $1;
       ")
@@ -59,7 +61,6 @@ impl Queryable for Source {
     sqlx::query(&format!("
         INSERT INTO sources (
           url,
-          body,
           params,
           headers,
           auth_type,
@@ -67,9 +68,12 @@ impl Queryable for Source {
           auth_password,
           auth_token,
           auth_param,
-          timeout
+          timeout,
+          body_type,
+          body_text,
+          body_json
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
       "))
       .bind(&self.url)
       .bind(&self.body)
@@ -90,19 +94,20 @@ impl Queryable for Source {
     sqlx::query("
       UPDATE sources
       SET url = $1,
-          body = $2,
-          params = $3,
-          headers = $4
-          auth_type = $5,
-          auth_username = $6,
-          auth_password = $7,
-          auth_token = $8,
-          auth_param = $9,
-          timeout = $10
-      WHERE sources.id = $11;
+          params = $2,
+          headers = $3,
+          auth_type = $4,
+          auth_username = $5,
+          auth_password = $6,
+          auth_token = $7,
+          auth_param = $8,
+          timeout = $9,
+          body_type = $10,
+          body_text = $11,
+          body_json = $12
+      WHERE sources.id = $13;
     ")
     .bind(&self.url)
-    .bind(&self.body)
     .bind(Json(&self.params))
     .bind(Json(&self.headers))
     .bind(&self.auth)
@@ -111,6 +116,9 @@ impl Queryable for Source {
     .bind(self.auth.token())
     .bind(Json(self.auth.param()))
     .bind(&self.timeout)
+    .bind(&self.body)
+    .bind(&self.body.text())
+    .bind(&self.body.json())
     .bind(&self.id)
     .execute(conn)
     .await?;

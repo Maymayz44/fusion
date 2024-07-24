@@ -40,7 +40,6 @@ impl Destination {
     Ok(sqlx::query_as("
         SELECT sources.id,
                sources.url,
-               sources.body,
                sources.params,
                sources.headers,
                sources.auth_type,
@@ -48,7 +47,10 @@ impl Destination {
                sources.auth_password,
                sources.auth_token,
                sources.auth_param,
-               sources.timeout
+               sources.timeout,
+               sources.body_type,
+               sources.body_text,
+               sources.body_json
         FROM destinations
         INNER JOIN destinations__sources
           ON destinations__sources.destination_id = destinations.id
