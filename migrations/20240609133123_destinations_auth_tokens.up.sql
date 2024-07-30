@@ -4,7 +4,7 @@ ADD COLUMN is_auth BOOLEAN DEFAULT FALSE;
 CREATE TABLE auth_tokens (
   id SERIAL PRIMARY KEY,
   value TEXT NOT NULL UNIQUE,
-  expiration TIMESTAMP NULL
+  expiration TIMESTAMP WITH TIME ZONE NULL
 );
 
 CREATE TABLE destinations__auth_tokens (

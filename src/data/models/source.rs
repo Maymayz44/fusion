@@ -1,14 +1,15 @@
 use std::{collections::HashMap, time::Duration};
 use serde::{Serialize, Deserialize};
 use sqlx::{
-  postgres::{types::PgInterval, PgRow}, prelude::FromRow, types::Json, Row
+  postgres::{types::PgInterval, PgRow}, prelude::FromRow, types::Json, PgConnection, Row
 };
 
-use crate::data::{types::{Auth, Body}, Error, Queryable};
+use crate::data::{queryable::QueryableCode, types::{Auth, Body}, Error, Queryable};
 
 #[derive(Serialize, Deserialize)]
 pub struct Source {
   pub id: Option<i32>,
+  pub code: String,
   pub url: String,
   pub params: HashMap<String, String>,
   pub headers: HashMap<String, String>,
@@ -21,6 +22,7 @@ impl FromRow<'_, PgRow> for Source {
   fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
     Ok(Self {
       id: row.try_get("id")?,
+      code: row.try_get("code")?,
       url: row.try_get("url")?,
       params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
@@ -33,65 +35,59 @@ impl FromRow<'_, PgRow> for Source {
 }
 
 impl Queryable for Source {
-  async fn select_by_id(id: i32, conn: &mut sqlx::PgConnection) -> Result<Self, Error>
+  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error>
   where Self: Sized {
     Ok(sqlx::query_as::<_, Self>("
-        SELECT sources.id,
-               sources.url,
-               sources.params,
-               sources.headers,
-               sources.auth_type,
-               sources.auth_username,
-               sources.auth_password,
-               sources.auth_token,
-               sources.auth_param,
-               sources.timeout,
-               sources.body_type,
-               sources.body_text,
-               sources.body_json
-        FROM sources
-        WHERE sources.id = $1;
-      ")
-      .bind(id)
-      .fetch_one(conn)
-      .await?)
+      SELECT sources.*
+      FROM sources
+      WHERE sources.id = $1;
+    ")
+    .bind(id)
+    .fetch_one(conn)
+    .await?)
   }
 
-  async fn insert(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
-    sqlx::query(&format!("
-        INSERT INTO sources (
-          url,
-          params,
-          headers,
-          auth_type,
-          auth_username,
-          auth_password,
-          auth_token,
-          auth_param,
-          timeout,
-          body_type,
-          body_text,
-          body_json
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
-      "))
-      .bind(&self.url)
-      .bind(&self.body)
-      .bind(Json(&self.params))
-      .bind(Json(&self.headers))
-      .bind(&self.auth)
-      .bind(self.auth.username())
-      .bind(self.auth.password())
-      .bind(self.auth.token())
-      .bind(Json(self.auth.param()))
-      .bind(&self.timeout)
-      .execute(conn).await?;
-
-    Ok(())
+  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error>
+  where Self: Sized {
+    Ok(sqlx::query_as("
+      INSERT INTO sources (
+        code,
+        url,
+        params,
+        headers,
+        auth_type,
+        auth_username,
+        auth_password,
+        auth_token,
+        auth_param,
+        timeout,
+        body_type,
+        body_text,
+        body_json
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING sources.*;
+    ")
+    .bind(&self.code)
+    .bind(&self.url)
+    .bind(Json(&self.params))
+    .bind(Json(&self.headers))
+    .bind(&self.auth)
+    .bind(self.auth.username())
+    .bind(self.auth.password())
+    .bind(self.auth.token())
+    .bind(self.auth.param().map(|param| Json(param)))
+    .bind(&self.timeout)
+    .bind(&self.body)
+    .bind(&self.body.text())
+    .bind(&self.body.json())
+    .fetch_one(conn)
+    .await?)
   }
 
-  async fn update(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
-    sqlx::query("
+  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error>
+  where Self: Sized {
+    Ok(sqlx::query_as("
       UPDATE sources
       SET url = $1,
           params = $2,
@@ -105,7 +101,8 @@ impl Queryable for Source {
           body_type = $10,
           body_text = $11,
           body_json = $12
-      WHERE sources.id = $13;
+      WHERE sources.code = $13
+      RETURNING sources.*;
     ")
     .bind(&self.url)
     .bind(Json(&self.params))
@@ -114,19 +111,17 @@ impl Queryable for Source {
     .bind(self.auth.username())
     .bind(self.auth.password())
     .bind(self.auth.token())
-    .bind(Json(self.auth.param()))
+    .bind(self.auth.param().map(|param| Json(param)))
     .bind(&self.timeout)
     .bind(&self.body)
     .bind(&self.body.text())
     .bind(&self.body.json())
-    .bind(&self.id)
-    .execute(conn)
-    .await?;
-
-    Ok(())
+    .bind(&self.code)
+    .fetch_one(conn)
+    .await?)
   }
 
-  async fn delete(&self, conn: &mut sqlx::PgConnection) -> Result<(), Error> {
+  async fn delete(&self, conn: &mut PgConnection) -> Result<(), Error> {
     sqlx::query("
       DELETE FROM sources
       WHERE sources.id = $1;
@@ -136,5 +131,31 @@ impl Queryable for Source {
     .await?;
 
     Ok(())
+  }
+
+  async fn exists(&self, conn: &mut PgConnection) -> Result<bool, Error> {
+    Ok(sqlx::query("SELECT EXISTS(
+      SELECT *
+      FROM sources
+      WHERE sources.code = $1
+    );")
+    .bind(&self.code)
+    .fetch_one(conn)
+    .await?
+    .try_get(0)?)
+  }
+}
+
+impl QueryableCode for Source {
+  async fn select_by_code(code: String, conn: &mut PgConnection) -> Result<Self, Error>
+  where Self: Sized {
+    Ok(sqlx::query_as("
+      SELECT *
+      FROM sources
+      WHERE sources.code = $1;
+    ")
+    .bind(code)
+    .fetch_one(conn)
+    .await?)
   }
 }

@@ -1,0 +1,11 @@
+DROP TABLE config_versions;
+
+ALTER TABLE destinations
+DROP COLUMN code,
+DROP COLUMN path;
+
+ALTER TABLE destinations
+ADD COLUMN path VARCHAR NOT NULL UNIQUE;
+
+ALTER TABLE sources
+DROP COLUMN code;

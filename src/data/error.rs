@@ -4,15 +4,13 @@ use std::io::Error as StdError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-  #[error("An error happened while fetching environment variable: {0}")]
+  #[error("ENV ERROR: `{0}`")]
   Env(VarError),
-  #[error("An error happened while contacting database: {0}")]
+  #[error("DATABASE ERROR: `{0}`")]
   Database(SqlxError),
-  #[error("Connection pool was already initialized")]
-  ConnPoolInit(()),
-  #[error("An error happened: {0}")]
-  Other(Box<dyn std::error::Error + Send>),
-  #[error("An error happened: {0}")]
+  #[error("DATABASE CONNECTION ERROR: `{0}`")]
+  Connection(String),
+  #[error("DATA ERROR: `{0}`")]
   OtherString(String),
 }
 

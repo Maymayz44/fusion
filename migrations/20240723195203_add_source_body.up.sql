@@ -14,4 +14,4 @@ ALTER TABLE sources
 ADD CONSTRAINT ck_body CHECK (
   (body_type = 'text') = (body_text IS NOT NULL)
   AND (body_type = 'json') = (body_json IS NOT NULL)
-) NOT VALID;
+);

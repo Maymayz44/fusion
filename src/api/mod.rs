@@ -8,7 +8,7 @@ use regex::Regex;
 use sqlx::PgConnection;
 use tokio::task::{self, JoinHandle};
 
-use crate::data::{models::{AuthToken, Destination, Source}, types::{Auth, Body}, POOL};
+use crate::data::{models::{AuthToken, Destination, Source}, types::{Auth, Body}, acquire_conn};
 pub use self::error::Error;
 use self::response::Response;
 pub use self::fusion_config::FusionConfig;
@@ -21,9 +21,7 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
   let (request_parts, _) = request.into_parts();
   let path = format!("/{}", Path::<String>::from_request_parts(&mut request_parts.clone(), &()).await.unwrap().0);
 
-  let mut conn = POOL.get()
-    .ok_or_else(|| Error::InternalServerError(String::from("")))?
-    .acquire().await?.detach();
+  let mut conn = acquire_conn().await?;
 
   let destination = Destination::select_by_path(path, &mut conn).await?;
 
