@@ -22,11 +22,13 @@ mod error;
 mod yaml_parser;
 
 pub async fn parse_config() -> Result<(), Error> {
-  let mut config_file = File::open(dotenv::var("CONFIG_FILE")
-    .unwrap_or_else(|_| String::from("/etc/fusion/fusion.yaml")))?;
-  let mut config_string = String::new();
-  config_file.read_to_string(&mut config_string)?;
-  let config = serde_yaml::from_str::<YamlValue>(&config_string)?;
+  let config = {
+    let mut config_file = File::open(dotenv::var("CONFIG_FILE")
+      .unwrap_or_else(|_| String::from("/etc/fusion/fusion.yaml")))?;
+    let mut config_string = String::new();
+    config_file.read_to_string(&mut config_string)?;
+    Result::<_, Error>::Ok(serde_yaml::from_str::<YamlValue>(&config_string)?)
+  }?;
 
   let mut conn = acquire_conn().await?;
 
@@ -39,11 +41,11 @@ pub async fn parse_config() -> Result<(), Error> {
     .fetch_optional(&mut conn)
     .await?;
 
-  let result = &Hasher::hash_string(serde_yaml::to_string(&config)?)[..];
+  let result = Hasher::hash_string(serde_yaml::to_string(&config)?);
 
   match prev_config_ver {
     Some(row) => {
-      if row.try_get::<&[u8], _>("hash")? != result {
+      if row.try_get::<Vec<u8>, _>("hash")? != result {
         println!("Configuration changed, updating database.");
         update_config(&mut conn, config, result).await?;
       }
@@ -57,7 +59,7 @@ pub async fn parse_config() -> Result<(), Error> {
   Ok(())
 }
 
-async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: &[u8]) -> Result<(), Error> {
+async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
   let config = config.as_mapping().ok_or(Error::Str(""))?;
 
   if let Some(YamlValue::Mapping(sources)) = config.get("sources") {
@@ -100,12 +102,12 @@ async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: &[u8]) 
       let token = match value {
         YamlValue::String(val) => AuthToken {
           id: None,
-          value: val.to_owned(),
+          value: Hasher::hash_string(val.to_owned()),
           expiration: None,
         },
         YamlValue::Mapping(_) => AuthToken {
           id: None,
-          value: YamlParser::to_string_req(value, "value")?,
+          value: Hasher::hash_string(YamlParser::to_string_req(value, "value")?),
           expiration: YamlParser::to_datetime_option(value.get("expiration"))?,
         },
         _ => Err(Error::Str("`Value` could not be converted to `AuthToken`"))?
