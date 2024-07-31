@@ -8,7 +8,7 @@ use regex::Regex;
 use sqlx::PgConnection;
 use tokio::task::{self, JoinHandle};
 
-use crate::data::{models::{AuthToken, Destination, Source}, types::{Auth, Body}, acquire_conn};
+use crate::{data::{acquire_conn, models::{AuthToken, Destination, Source}, types::{Auth, Body}}, utils::Hasher};
 pub use self::error::Error;
 use self::response::Response;
 pub use self::fusion_config::FusionConfig;
@@ -103,12 +103,14 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
 
 async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mut PgConnection) -> Result<(), Error> {
   let token = AuthToken::select_by_value(
-    Regex::new(r"^Bearer\s\w{32}$")?
-    .find_iter(headers
-      .get("Authorization")
-      .ok_or(Error::Unauthorized(()))?.to_str()?).next()
-    .ok_or(Error::Unauthorized(()))?.as_str().split(' ').last()
-    .ok_or(Error::Unauthorized(()))?.to_owned(), &mut conn).await?
+    Hasher::hash_string(
+      Regex::new(r"^Bearer\s\w{32}$")?
+      .find_iter(headers
+        .get("Authorization")
+        .ok_or(Error::Unauthorized(()))?.to_str()?).next()
+      .ok_or(Error::Unauthorized(()))?.as_str().split(' ').last()
+      .ok_or(Error::Unauthorized(()))?.to_owned()
+    ), &mut conn).await?
     .ok_or(Error::Unauthorized(()))?;
   
   if !destination.is_token_for(&token, &mut conn).await? {

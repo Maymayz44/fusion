@@ -2,11 +2,11 @@ use chrono::Utc;
 use rand::{distributions::Alphanumeric, Rng};
 use sqlx::{postgres::PgRow, prelude::FromRow, types::chrono::DateTime, PgConnection, Row};
 
-use crate::data::{Error, Queryable};
+use crate::{data::{Error, Queryable}, utils::Hasher};
 
 pub struct AuthToken {
   pub id: Option<i32>,
-  pub value: String,
+  pub value: Vec<u8>,
   pub expiration: Option<DateTime<Utc>>,
 }
 
@@ -14,11 +14,13 @@ impl AuthToken {
   pub fn new(expiration: Option<DateTime<Utc>>) -> Self {
     Self {
       id: None,
-      value: rand::thread_rng()
+      value: Hasher::hash_string(
+        rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(32)
         .map(char::from)
-        .collect(),
+        .collect()
+      ),
       expiration: expiration,
     }
   }
@@ -30,7 +32,7 @@ impl AuthToken {
     }
   }
 
-  pub async fn select_by_value(value: String, conn: &mut PgConnection) -> Result<Option<Self>, Error> {
+  pub async fn select_by_value(value: Vec<u8>, conn: &mut PgConnection) -> Result<Option<Self>, Error> {
     Ok(sqlx::query_as("
       SELECT auth_tokens.id,
             auth_tokens.value,
