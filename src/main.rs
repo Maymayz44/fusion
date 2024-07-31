@@ -8,11 +8,14 @@ use tokio::task;
 
 pub mod api;
 pub mod data;
+pub mod config;
+pub mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
   dotenv()?;
   data::init_pool().await?;
+  config::parse_config().await?;
 
   let fusion_server = task::spawn(async move {
     let fusion_config = FusionConfig::env();
@@ -25,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     axum::serve(fusion_listener, fusion_router).await.unwrap();
   });
 
-  fusion_server.await.unwrap();
+  fusion_server.await?;
 
   Ok(())
 }

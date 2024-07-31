@@ -1,7 +1,15 @@
 use std::collections::HashMap;
-
 use serde::{Serialize, Deserialize};
-use sqlx::{encode::IsNull, postgres::{PgRow, PgTypeInfo}, types::Json, Encode, FromRow, Postgres, Row, Type};
+use sqlx::{
+  encode::IsNull,
+  postgres::{PgRow, PgTypeInfo},
+  types::Json, Encode,
+  FromRow, Postgres,
+  Row, Type
+};
+use serde_yaml::Value as YamlValue;
+
+use crate::config::{Error, YamlParser};
 
 #[derive(Serialize, Deserialize)]
 pub enum Auth {
@@ -78,6 +86,26 @@ impl FromRow<'_, PgRow> for Auth {
         Self::Param(vals.0.to_owned(), vals.1.to_owned())
       },
       "none" | _ => Self::None,
+    })
+  }
+}
+
+impl TryFrom<Option<&YamlValue>> for Auth {
+  type Error = Error;
+
+  fn try_from(value: Option<&YamlValue>) -> Result<Self, Self::Error> {
+    Ok(if let Some(auth) = value {
+      match YamlParser::to_str_option(auth.get("type"))? {
+        Some("basic") => Self::Basic {
+          username: YamlParser::to_string_req(auth, "username")?,
+          password: YamlParser::to_string_req(auth, "password")? },
+        Some("bearer") => Self::Bearer { token: YamlParser::to_string_req(auth, "token")? },
+        Some("param") => Self::Param(YamlParser::to_string_req(auth, "key")?, YamlParser::to_string_req(auth, "value")?),
+        Some("none") | None => Self::None,
+        Some(auth_type) => Err(Error::String(format!("Souce auth type `{}` invalid.", auth_type)))?,
+      }
+    } else {
+      Self::None
     })
   }
 }
