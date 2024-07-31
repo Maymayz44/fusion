@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{
@@ -6,6 +7,10 @@ use sqlx::{
   Database, Encode, FromRow,
   Postgres, Type, Row
 };
+use serde_json::Value as JsonValue;
+use serde_yaml::Value as YamlValue;
+
+use crate::config::{Error, YamlParser};
 
 #[derive(Serialize, Deserialize)]
 pub enum Body {
@@ -60,6 +65,23 @@ impl FromRow<'_, PgRow> for Body {
       "text" => Self::Text(row.try_get("body_text")?),
       "json" => Self::Json(row.try_get("body_json")?),
       "none" | _ => Self::None
+    })
+  }
+}
+
+impl TryFrom<Option<&YamlValue>> for Body {
+  type Error = Error;
+
+  fn try_from(value: Option<&YamlValue>) -> Result<Self, Self::Error> {
+    Ok(if let Some(body) = value {
+      match YamlParser::to_str_option(body.get("type"))? {
+        Some("text") => Self::Text(YamlParser::to_string_req(body, "text")?),
+        Some("json") => Self::Json(JsonValue::from_str(YamlParser::to_str(&YamlParser::get_req(body, "json")?)?)?),
+        Some("none") | None => Self::None,
+        Some(body_type) => Err(Error::String(format!("Souce body type `{}` invalid.", body_type)))?,
+      }
+    } else {
+      Self::None
     })
   }
 }

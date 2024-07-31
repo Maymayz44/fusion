@@ -1,8 +1,6 @@
-use std::borrow::Borrow;
-
 use chrono::Utc;
 use rand::{distributions::Alphanumeric, Rng};
-use sqlx::{postgres::PgRow, prelude::FromRow, types::chrono::DateTime, PgConnection, Postgres, Row};
+use sqlx::{postgres::PgRow, prelude::FromRow, types::chrono::DateTime, PgConnection, Row};
 
 use crate::data::{Error, Queryable};
 
@@ -73,19 +71,8 @@ impl AuthToken {
   }
 }
 
-impl FromRow<'_, PgRow> for AuthToken {
-  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: row.try_get("id")?,
-      value: row.try_get("value")?,
-      expiration: row.try_get("expiration")?
-    })
-  }
-}
-
 impl Queryable for AuthToken {
-  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       SELECT auth_tokens.*
       FROM auth_tokens
@@ -96,8 +83,7 @@ impl Queryable for AuthToken {
     .await?)
   }
 
-  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       INSERT INTO auth_tokens (value, expiration)
       VALUES ($1, $2)
@@ -109,8 +95,7 @@ impl Queryable for AuthToken {
     .await?)
   }
 
-  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       UPDATE auth_tokens
       SET value = $1,
@@ -149,11 +134,20 @@ impl Queryable for AuthToken {
     .try_get(0)?)
   }
 
-  async fn insert_or_update(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn insert_or_update(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(match Self::select_by_value(self.value.clone(), conn).await? {
       Some(token) => token.update(conn).await?,
       None => self.insert(conn).await?,
+    })
+  }
+}
+
+impl FromRow<'_, PgRow> for AuthToken {
+  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
+    Ok(Self {
+      id: row.try_get("id")?,
+      value: row.try_get("value")?,
+      expiration: row.try_get("expiration")?
     })
   }
 }

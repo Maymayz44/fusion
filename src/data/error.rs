@@ -11,7 +11,7 @@ pub enum Error {
   #[error("DATABASE CONNECTION ERROR: `{0}`")]
   Connection(String),
   #[error("DATA ERROR: `{0}`")]
-  OtherString(String),
+  Str(&'static str),
 }
 
 impl From<VarError> for Error {

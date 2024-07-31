@@ -18,25 +18,8 @@ pub struct Source {
   pub body: Body,
 }
 
-impl FromRow<'_, PgRow> for Source {
-  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: row.try_get("id")?,
-      code: row.try_get("code")?,
-      url: row.try_get("url")?,
-      params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
-      headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
-      auth: Auth::from_row(row)?,
-      timeout: row.try_get::<Option<PgInterval>, _>("timeout")?
-        .map(|interval| Duration::from_micros(interval.microseconds as u64)),
-      body: Body::from_row(row)?,
-    })
-  }
-}
-
 impl Queryable for Source {
-  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as::<_, Self>("
       SELECT sources.*
       FROM sources
@@ -47,8 +30,7 @@ impl Queryable for Source {
     .await?)
   }
 
-  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       INSERT INTO sources (
         code,
@@ -85,8 +67,7 @@ impl Queryable for Source {
     .await?)
   }
 
-  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       UPDATE sources
       SET url = $1,
@@ -147,8 +128,7 @@ impl Queryable for Source {
 }
 
 impl QueryableCode for Source {
-  async fn select_by_code(code: String, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn select_by_code(code: String, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       SELECT *
       FROM sources
@@ -157,5 +137,21 @@ impl QueryableCode for Source {
     .bind(code)
     .fetch_one(conn)
     .await?)
+  }
+}
+
+impl FromRow<'_, PgRow> for Source {
+  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
+    Ok(Self {
+      id: row.try_get("id")?,
+      code: row.try_get("code")?,
+      url: row.try_get("url")?,
+      params: row.try_get::<Json<HashMap<String, String>>, _>("params")?.0,
+      headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
+      auth: Auth::from_row(row)?,
+      timeout: row.try_get::<Option<PgInterval>, _>("timeout")?
+        .map(|interval| Duration::from_micros(interval.microseconds as u64)),
+      body: Body::from_row(row)?,
+    })
   }
 }

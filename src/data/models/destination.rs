@@ -95,22 +95,8 @@ impl Destination {
   }
 }
 
-impl FromRow<'_, PgRow> for Destination {
-  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: row.try_get("id")?,
-      code: row.try_get("code")?,
-      path: row.try_get("path")?,
-      headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
-      filter: row.try_get("filter")?,
-      is_auth: row.try_get("is_auth")?,
-    })
-  }
-}
-
 impl Queryable for Destination {
-  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn select_by_id(id: i32, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       SELECT destinations.*
       FROM destinations
@@ -121,8 +107,7 @@ impl Queryable for Destination {
     .await?)
   }
 
-  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       INSERT INTO destinations (code, path, headers, filter, is_auth)
       VALUES ($1, $2, $3, $4, $5)
@@ -137,8 +122,7 @@ impl Queryable for Destination {
     .await?)
   }
 
-  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn update(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       UPDATE destinations
       SET path = $1,
@@ -183,8 +167,7 @@ impl Queryable for Destination {
 }
 
 impl QueryableCode for Destination {
-  async fn select_by_code(code: String, conn: &mut PgConnection) -> Result<Self, Error>
-  where Self: Sized {
+  async fn select_by_code(code: String, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
       SELECT destinations.*
       FROM destinations
@@ -193,5 +176,18 @@ impl QueryableCode for Destination {
     .bind(code)
     .fetch_one(conn)
     .await?)
+  }
+}
+
+impl FromRow<'_, PgRow> for Destination {
+  fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
+    Ok(Self {
+      id: row.try_get("id")?,
+      code: row.try_get("code")?,
+      path: row.try_get("path")?,
+      headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
+      filter: row.try_get("filter")?,
+      is_auth: row.try_get("is_auth")?,
+    })
   }
 }

@@ -3,19 +3,18 @@ use dotenv::dotenv;
 use axum::{
   routing::get, Router
 };
-use std::{error::Error, fs::File, io::Read};
+use std::error::Error;
 use tokio::task;
-use serde_yaml::Value;
 
 pub mod api;
 pub mod data;
 pub mod config;
+pub mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
   dotenv()?;
   data::init_pool().await?;
-
   config::parse_config().await?;
 
   let fusion_server = task::spawn(async move {
