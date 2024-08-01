@@ -1,6 +1,6 @@
 use std::env;
 use std::sync::OnceLock;
-use sqlx::{PgConnection, PgPool, Pool, Postgres};
+use sqlx::{PgConnection, PgPool, Pool, Postgres, Transaction};
 
 pub use self::error::Error;
 pub use self::queryable::{Queryable, QueryableCode};
@@ -25,8 +25,14 @@ pub async fn init_pool() -> Result<(), Error> {
   Ok(())
 }
 
-pub async fn acquire_conn() -> Result<PgConnection, Error> {
+pub async fn get_conn() -> Result<PgConnection, Error> {
   Ok(POOL.get()
     .ok_or(Error::Str("Connection could not be acquired from pool."))?
     .acquire().await?.detach())
+}
+
+pub async fn get_tran<'a>() -> Result<Transaction<'a, Postgres>, Error> {
+  Ok(POOL.get()
+    .ok_or(Error::Str("Connection could not be acquired from pool."))?
+    .begin().await?)
 }

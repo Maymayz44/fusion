@@ -1,17 +1,15 @@
 use std::{fs::File, io::Read};
 use chrono::Utc;
 use serde_yaml::Value as YamlValue;
-use sqlx::{PgConnection, Row};
+use sqlx::Row;
 
 use crate::{
   data::{
-    acquire_conn,
-    models::{
+    get_conn, get_tran, models::{
       AuthToken,
       Destination,
       Source
-    },
-    Queryable
+    }, Queryable
   },
   utils::hash::Hasher
 };
@@ -30,7 +28,7 @@ pub async fn parse_config() -> Result<(), Error> {
     Result::<_, Error>::Ok(serde_yaml::from_str::<YamlValue>(&config_string)?)
   }?;
 
-  let mut conn = acquire_conn().await?;
+  let mut conn = get_conn().await?;
 
   let prev_config_ver = sqlx::query("
       SELECT config_versions.hash
@@ -47,20 +45,21 @@ pub async fn parse_config() -> Result<(), Error> {
     Some(row) => {
       if row.try_get::<Vec<u8>, _>("hash")? != result {
         println!("Configuration changed, updating database.");
-        update_config(&mut conn, config, result).await?;
+        update_config(config, result).await?;
       }
     },
     None => {
       println!("No previous configuration found, initializing database.");
-      update_config(&mut conn, config, result).await?;
+      update_config(config, result).await?;
     },
   }
 
   Ok(())
 }
 
-async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
-  let config = config.as_mapping().ok_or(Error::Str(""))?;
+async fn update_config(config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
+  let config = config.as_mapping().ok_or(Error::Str("Configuration invalid."))?;
+  let mut tran = get_tran().await?;
 
   if let Some(YamlValue::Mapping(sources)) = config.get("sources") {
     for (code, data) in sources {
@@ -74,7 +73,7 @@ async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>
         auth: data.get("auth").try_into()?,
         body: data.get("body").try_into()?,
       }
-      .insert_or_update(conn).await?;
+      .insert_or_update(&mut tran).await?;
     }
   }
 
@@ -88,11 +87,11 @@ async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>
         is_auth: YamlParser::to_bool_option(data.get("is_auth"))?.unwrap_or_default(),
         filter: YamlParser::to_string_option_multiline(data.get("filter"))?,
       }
-      .insert_or_update(conn).await?;
+      .insert_or_update(&mut tran).await?;
 
       if let Some(YamlValue::Sequence(dest_sources)) = data.get("sources") {
-        dest.unlink_sources(conn).await?;
-        dest.link_sources(YamlParser::vec_to_string(dest_sources)?, conn).await?;
+        dest.unlink_sources(&mut tran).await?;
+        dest.link_sources(YamlParser::vec_to_string(dest_sources)?, &mut tran).await?;
       }
     }
   }
@@ -112,11 +111,11 @@ async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>
         },
         _ => Err(Error::Str("`Value` could not be converted to `AuthToken`"))?
       }
-      .insert_or_update(conn).await?;
+      .insert_or_update(&mut tran).await?;
       
       if let Some(YamlValue::Sequence(token_dests)) = value.get("destinations") {
-        token.unlink_destinations(conn).await?;
-        token.link_destinations(YamlParser::vec_to_string(token_dests)?, conn).await?;
+        token.unlink_destinations(&mut tran).await?;
+        token.link_destinations(YamlParser::vec_to_string(token_dests)?, &mut tran).await?;
       }
     }
   }
@@ -127,8 +126,10 @@ async fn update_config(conn: &mut PgConnection, config: YamlValue, hash: Vec<u8>
   ")
   .bind(Utc::now())
   .bind(hash)
-  .execute(conn)
+  .execute(&mut *tran)
   .await?;
+
+  tran.commit().await?;
 
   Ok(())
 }
