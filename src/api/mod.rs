@@ -2,7 +2,7 @@ use std::{sync::Arc, time::SystemTime};
 
 use axum::extract::{FromRequestParts, Path, Request};
 use http::{HeaderValue, StatusCode};
-use reqwest::{header::HeaderMap, Client};
+use reqwest::{header::HeaderMap, multipart, Client};
 use serde_json::Value;
 use regex::Regex;
 use sqlx::PgConnection;
@@ -72,6 +72,16 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
       match source.body {
         Body::Text(text) => request = request.body(text),
         Body::Json(json) => request = request.json(&json),
+        Body::Form(form) => request = request.form(&form),
+        Body::Multi(multi) => request = {
+          let mut form = multipart::Form::new();
+
+          for (key, val) in multi {
+            form = form.text(key, val);
+          }
+
+          request.multipart(form)
+        },
         Body::None => (),
       }
 

@@ -6,7 +6,7 @@ use sqlx::{
 
 use crate::data::{queryable::QueryableCode, types::{Auth, Body}, Error, Queryable};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Source {
   pub id: Option<i32>,
   pub code: String,
@@ -45,9 +45,11 @@ impl Queryable for Source {
         timeout,
         body_type,
         body_text,
-        body_json
+        body_json,
+        body_form,
+        body_multi
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING sources.*;
     ")
     .bind(&self.code)
@@ -63,6 +65,8 @@ impl Queryable for Source {
     .bind(&self.body)
     .bind(&self.body.text())
     .bind(&self.body.json())
+    .bind(&self.body.form().map(|form| Json(form)))
+    .bind(&self.body.multi().map(|multi| Json(multi)))
     .fetch_one(conn)
     .await?)
   }
@@ -81,8 +85,10 @@ impl Queryable for Source {
           timeout = $9,
           body_type = $10,
           body_text = $11,
-          body_json = $12
-      WHERE sources.code = $13
+          body_json = $12,
+          body_form = $13,
+          body_multi = $14
+      WHERE sources.code = $15
       RETURNING sources.*;
     ")
     .bind(&self.url)
@@ -97,6 +103,8 @@ impl Queryable for Source {
     .bind(&self.body)
     .bind(&self.body.text())
     .bind(&self.body.json())
+    .bind(&self.body.form().map(|form| Json(form)))
+    .bind(&self.body.multi().map(|multi| Json(multi)))
     .bind(&self.code)
     .fetch_one(conn)
     .await?)

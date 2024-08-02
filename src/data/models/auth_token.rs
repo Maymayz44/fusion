@@ -4,6 +4,7 @@ use sqlx::{postgres::PgRow, prelude::FromRow, types::chrono::DateTime, PgConnect
 
 use crate::{data::{Error, Queryable}, utils::Hasher};
 
+#[derive(Debug)]
 pub struct AuthToken {
   pub id: Option<i32>,
   pub value: Vec<u8>,
@@ -21,7 +22,7 @@ impl AuthToken {
         .map(char::from)
         .collect()
       ),
-      expiration: expiration,
+      expiration,
     }
   }
 

@@ -12,15 +12,8 @@ BEGIN
   RETURN is_keyvalue;
 END; $$;
 
-ALTER TYPE AUTH
-ADD VALUE 'param' AFTER 'bearer';
-COMMIT;
-
 CREATE DOMAIN STRING_KEYVALUE AS JSON
-CHECK (
-  (json_is_keyvalue(value) AND json_typeof(value) = 'object')
-  OR value IS NULL
-);
+CHECK (json_is_keyvalue(value));
 
 ALTER TABLE sources
 ADD COLUMN auth_param STRING_KEYVALUE NULL;

@@ -1,8 +1,18 @@
-ALTER TABLE sources
-DROP CONSTRAINT ck_auth;
+ALTER TYPE AUTH RENAME TO AUTH_DEL;
+
+CREATE TYPE AUTH AS ENUM('none', 'basic', 'bearer');
 
 ALTER TABLE sources
-DROP COLUMN auth_param;
+ADD COLUMN auth_type_torename AUTH DEFAULT 'none';
+
+UPDATE sources
+SET auth_type_torename = CASE WHEN auth_type = 'param' THEN 'none' ELSE auth_type::TEXT::AUTH END;
+
+ALTER TABLE sources
+DROP COLUMN auth_type;
+
+ALTER TABLE sources
+RENAME COLUMN auth_type_torename TO auth_type;
 
 ALTER TABLE sources
 ADD CONSTRAINT ck_auth CHECK (
@@ -13,6 +23,4 @@ ADD CONSTRAINT ck_auth CHECK (
   END
 );
 
-DROP DOMAIN STRING_KEYVALUE;
-
-DROP FUNCTION json_is_keyvalue;
+DROP TYPE AUTH_DEL;
