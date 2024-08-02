@@ -12,7 +12,7 @@ serde = "1.0.201"
 serde_json = { version = "1.0.117", features = ["raw_value"] }
 axum = { version = "0.7.5", features = ["json"]}
 sqlx = { version = "0.8.0", features = ["postgres", "runtime-tokio", "chrono"] }
-reqwest = { version = "0.12.4", features = ["json"] }
+reqwest = { version = "0.12.4", features = ["json", "multipart"] }
 regex = "1.10.4"
 jq-rs = "0.4.1"
 tokio = { version = "1.37.0", features = ["full"]}

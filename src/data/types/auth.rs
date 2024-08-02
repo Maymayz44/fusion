@@ -11,7 +11,7 @@ use serde_yaml::Value as YamlValue;
 
 use crate::config::{Error, YamlParser};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Auth {
   None,
   Basic { username: String, password: String },
@@ -98,7 +98,8 @@ impl TryFrom<Option<&YamlValue>> for Auth {
       match YamlParser::to_str_option(auth.get("type"))? {
         Some("basic") => Self::Basic {
           username: YamlParser::to_string_req(auth, "username")?,
-          password: YamlParser::to_string_req(auth, "password")? },
+          password: YamlParser::to_string_req(auth, "password")?
+        },
         Some("bearer") => Self::Bearer { token: YamlParser::to_string_req(auth, "token")? },
         Some("param") => Self::Param(YamlParser::to_string_req(auth, "key")?, YamlParser::to_string_req(auth, "value")?),
         Some("none") | None => Self::None,

@@ -14,9 +14,7 @@ END; $$;
 
 CREATE DOMAIN STRING_HASHMAP AS JSON
 DEFAULT '{}'::JSON
-CHECK (
-  json_is_hashmap(value) AND json_typeof(value) = 'object'
-);
+CHECK (json_is_hashmap(value));
 
 CREATE TABLE destinations (
   id SERIAL PRIMARY KEY,

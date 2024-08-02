@@ -12,7 +12,7 @@ use crate::data::Queryable;
 
 use super::{AuthToken, Source};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Destination {
   pub id: Option<i32>,
   pub code: String,

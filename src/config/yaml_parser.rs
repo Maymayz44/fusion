@@ -21,7 +21,7 @@ impl YamlParser {
       .ok_or(Error::Str("`Value` could not be converted to `Mapping`."))?
       .iter()
       .map(|(key, value)|
-        Ok((Self::to_string(key)?, serde_yaml::to_string(value)?)))
+        Ok((Self::to_string(key)?, serde_yaml::to_string(value)?.replace('\n', ""))))
       .collect::<Result<HashMap<_, _>, Error>>()
     )
     .transpose()
