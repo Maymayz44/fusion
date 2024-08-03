@@ -39,7 +39,7 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
 }
 
 async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
-  let mut handles: Vec<JoinHandle<Result<Value, Error>>> = vec![];
+  let mut handles = Vec::<JoinHandle<Result<Value, Error>>>::new();
   let timer = Arc::new(SystemTime::now());
 
   for source in sources {
@@ -50,40 +50,32 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
 
       let client = Client::new();
 
-      let mut request = client
+      let request = client
         .get(&source.url)
         .query(&source.params);
   
-      if let Ok(headers) = HeaderMap::<HeaderValue>::try_from(&source.headers) {
-        request = request.headers(headers);
-      }
+      let request = request.headers(HeaderMap::<HeaderValue>::try_from(&source.headers)?);
 
-      if let Some(timeout) = source.timeout.clone() {
-        request = request.timeout(timeout)
-      }
+      let request = match source.timeout.clone() {
+        Some(timeout) => request.timeout(timeout),
+        None => request,
+      };
   
-      match source.auth {
-        Auth::Basic { username, password } => request = request.basic_auth(username, Some(password)),
-        Auth::Bearer { token } => request = request.bearer_auth(token),
-        Auth::Param(key, value) => request = request.query(&[(key, value)]),
-        Auth::None => (),
-      }
+      let request = match source.auth {
+        Auth::Basic { username, password } => request.basic_auth(username, Some(password)),
+        Auth::Bearer { token } => request.bearer_auth(token),
+        Auth::Param(key, value) => request.query(&[(key, value)]),
+        Auth::None => request,
+      };
 
-      match source.body {
-        Body::Text(text) => request = request.body(text),
-        Body::Json(json) => request = request.json(&json),
-        Body::Form(form) => request = request.form(&form),
-        Body::Multi(multi) => request = {
-          let mut form = multipart::Form::new();
-
-          for (key, val) in multi {
-            form = form.text(key, val);
-          }
-
-          request.multipart(form)
-        },
-        Body::None => (),
-      }
+      let request = match source.body {
+        Body::Text(text) => request.body(text),
+        Body::Json(json) => request.json(&json),
+        Body::Form(form) => request.form(&form),
+        Body::Multi(multi) => request.multipart(multi.iter().fold(multipart::Form::new(),
+            |form, (key, val)| form.text(key.to_owned(), val.to_owned()))),
+        Body::None => request,
+      };
 
       let response = match request.send().await {
         Ok(response) => Ok(response),

@@ -9,6 +9,7 @@ use jq_rs::Error as JqError;
 use serde_json::Error as JsonError;
 use tokio::task::JoinError;
 use regex::Error as RegexError;
+use http::Error as HttpError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -82,6 +83,12 @@ impl From<SystemTimeError> for Error {
 
 impl From<RegexError> for Error {
   fn from(value: RegexError) -> Self {
+    Self::InternalServerError(value.to_string())
+  }
+}
+
+impl From<HttpError> for Error {
+  fn from(value: HttpError) -> Self {
     Self::InternalServerError(value.to_string())
   }
 }
