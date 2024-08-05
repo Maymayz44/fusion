@@ -1,5 +1,6 @@
 use std::{fs::File, io::Read};
 use chrono::Utc;
+use serde_json::Value;
 use serde_yaml::Value as YamlValue;
 use sqlx::Row;
 
@@ -72,6 +73,7 @@ async fn update_config(config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
         timeout: YamlParser::to_duration(data.get("timeout"))?,
         auth: data.get("auth").try_into()?,
         body: data.get("body").try_into()?,
+        fallback: YamlParser::to_json_option(data.get("fallback"))?,
       }
       .insert_or_update(&mut tran).await?;
     }

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use sqlx::{
   postgres::{types::PgInterval, PgRow}, prelude::FromRow, types::Json, PgConnection, Row
 };
@@ -16,6 +17,7 @@ pub struct Source {
   pub auth: Auth,
   pub timeout: Option<Duration>,
   pub body: Body,
+  pub fallback: Option<Value>,
 }
 
 impl Queryable for Source {
@@ -47,9 +49,10 @@ impl Queryable for Source {
         body_text,
         body_json,
         body_form,
-        body_multi
+        body_multi,
+        fallback
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING sources.*;
     ")
     .bind(&self.code)
@@ -67,6 +70,7 @@ impl Queryable for Source {
     .bind(&self.body.json())
     .bind(&self.body.form().map(|form| Json(form)))
     .bind(&self.body.multi().map(|multi| Json(multi)))
+    .bind(&self.fallback)
     .fetch_one(conn)
     .await?)
   }
@@ -87,8 +91,9 @@ impl Queryable for Source {
           body_text = $11,
           body_json = $12,
           body_form = $13,
-          body_multi = $14
-      WHERE sources.code = $15
+          body_multi = $14,
+          fallback = $15
+      WHERE sources.code = $16
       RETURNING sources.*;
     ")
     .bind(&self.url)
@@ -105,6 +110,7 @@ impl Queryable for Source {
     .bind(&self.body.json())
     .bind(&self.body.form().map(|form| Json(form)))
     .bind(&self.body.multi().map(|multi| Json(multi)))
+    .bind(&self.fallback)
     .bind(&self.code)
     .fetch_one(conn)
     .await?)
@@ -160,6 +166,7 @@ impl FromRow<'_, PgRow> for Source {
       timeout: row.try_get::<Option<PgInterval>, _>("timeout")?
         .map(|interval| Duration::from_micros(interval.microseconds as u64)),
       body: Body::from_row(row)?,
+      fallback: row.try_get("fallback")?,
     })
   }
 }

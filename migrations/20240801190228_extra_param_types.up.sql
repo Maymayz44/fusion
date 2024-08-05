@@ -3,7 +3,7 @@ ALTER TYPE BODY RENAME TO BODY_DEL;
 CREATE TYPE BODY AS ENUM('none', 'text', 'json', 'form', 'multi');
 
 ALTER TABLE sources
-ADD COLUMN body_type_torename BODY NOT NULL;
+ADD COLUMN body_type_torename BODY NOT NULL DEFAULT 'none';
 
 UPDATE sources
 SET body_type_torename = body_type::TEXT::BODY;

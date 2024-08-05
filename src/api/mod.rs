@@ -52,9 +52,8 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
 
       let request = client
         .get(&source.url)
-        .query(&source.params);
-  
-      let request = request.headers(HeaderMap::<HeaderValue>::try_from(&source.headers)?);
+        .query(&source.params)
+        .headers(HeaderMap::<HeaderValue>::try_from(&source.headers)?);
 
       let request = match source.timeout.clone() {
         Some(timeout) => request.timeout(timeout),
@@ -79,18 +78,28 @@ async fn send_source_requests(sources: Vec<Source>) -> Result<Value, Error> {
 
       let response = match request.send().await {
         Ok(response) => Ok(response),
-        Err(error) => if error.is_timeout() {
-          Err(Error::BadRequest(String::from(format!("Request timeout for source: ({})", &source.url))))
-        } else {
-          Err(Error::InternalServerError(error.to_string()))
-        }
+        Err(error) =>
+          if let Some(fallback) = source.fallback {
+            return Ok(fallback)
+          } else {
+            if error.is_timeout() {
+              Err(Error::BadRequest(String::from(format!("Request timeout for source: ({})", &source.url))))
+            } else {
+              Err(Error::InternalServerError(error.to_string()))
+            }
+          }
       }?;
 
       println!("Recieved response for url: ({}), took {} ms", &source.url, timer.elapsed()?.as_millis());
       
       match response.status() {
         StatusCode::OK => Ok(response.json().await?),
-        _ => Err(Error::InternalServerError(String::from(format!("Recieved bad response from source: ({})\nError code {}", &source.url, response.status()))))
+        _ =>
+          if let Some(fallback) = source.fallback {
+            Ok(fallback)
+          } else {
+            Err(Error::InternalServerError(String::from(format!("Recieved bad response from source: ({})\nError code {}", &source.url, response.status()))))
+          }
       }
     }));
   }
