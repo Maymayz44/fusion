@@ -1,5 +1,5 @@
 use std::{
-  collections::HashMap, ops::Deref, str::FromStr, time::Duration
+  collections::HashMap, str::FromStr, time::Duration
 };
 use chrono::{DateTime, Utc};
 use serde_yaml::Value as YamlValue;

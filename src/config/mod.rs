@@ -1,6 +1,5 @@
 use std::{fs::File, io::Read};
 use chrono::Utc;
-use serde_json::Value;
 use serde_yaml::Value as YamlValue;
 use sqlx::Row;
 
