@@ -1,3 +1,3 @@
-pub mod hash;
+pub mod hasher;
 
-pub use hash::Hasher;
+pub use hasher::Hasher;

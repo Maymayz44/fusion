@@ -11,7 +11,7 @@ use crate::{
       Source
     }, Queryable
   },
-  utils::hash::Hasher
+  utils::hasher::Hasher
 };
 pub use self::error::Error;
 pub use self::yaml_parser::YamlParser;
