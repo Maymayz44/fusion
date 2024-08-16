@@ -1,2 +1,0 @@
-ALTER TABLE sources
-ADD COLUMN timeout INTERVAL NULL;

@@ -1,5 +1,0 @@
-ALTER TABLE auth_tokens
-DROP COLUMN value;
-
-ALTER TABLE auth_tokens
-ADD COLUMN value TEXT NOT NULL UNIQUE;

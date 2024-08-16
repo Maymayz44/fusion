@@ -1,2 +1,0 @@
-ALTER TYPE AUTH
-ADD VALUE 'param' AFTER 'bearer';
