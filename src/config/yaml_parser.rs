@@ -3,7 +3,6 @@ use std::{
 };
 use chrono::{DateTime, Utc};
 use serde_yaml::Value as YamlValue;
-use serde_json::Value as JsonValue;
 
 use super::Error;
 
@@ -71,10 +70,5 @@ impl YamlParser {
 
   pub fn vec_to_string(value: &Vec<YamlValue>) -> Result<Vec<String>, Error> {
     value.iter().map(|val| Self::to_string(val)).collect()
-  }
-
-  pub fn to_json_option(value: Option<&YamlValue>) -> Result<Option<JsonValue>, Error> {
-    Self::to_string_option_multiline(value)?
-      .map(|val| Ok(JsonValue::from_str(val.as_str())?)).transpose()
   }
 }

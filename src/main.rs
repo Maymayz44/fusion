@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let fusion_config = FusionConfig::env();
 
     let fusion_router = Router::new()
-      .route(format!("{}/*path", &fusion_config.path).as_str(), get(api::entrypoint));
+      .route(&format!("{}/*path", &fusion_config.path), get(api::entrypoint));
     let fusion_listener = tokio::net::TcpListener::bind(fusion_config.full_address()).await.unwrap();
     
     println!("Fusion server running on http://{}:{}{}", &fusion_config.address, &fusion_config.port, &fusion_config.path);

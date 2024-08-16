@@ -1,7 +1,10 @@
-use std::{fs::File, io::Read};
+use std::str::FromStr;
 use chrono::Utc;
 use serde_yaml::Value as YamlValue;
+use serde_json::Value as JsonValue;
 use sqlx::Row;
+
+use self::config_file::{ConfigFile, FileType};
 
 use crate::{
   data::{
@@ -18,15 +21,14 @@ pub use self::yaml_parser::YamlParser;
 
 mod error;
 mod yaml_parser;
+mod config_file;
 
 pub async fn parse_config() -> Result<(), Error> {
-  let config = {
-    let mut config_file = File::open(dotenv::var("CONFIG_FILE")
-      .unwrap_or_else(|_| String::from("/etc/fusion/fusion.yaml")))?;
-    let mut config_string = String::new();
-    config_file.read_to_string(&mut config_string)?;
-    Result::<_, Error>::Ok(serde_yaml::from_str::<YamlValue>(&config_string)?)
-  }?;
+  let config = serde_yaml::from_str::<YamlValue>(
+    &ConfigFile::new(&dotenv::var("CONFIG_FILE")
+      .unwrap_or_else(|_| String::from("/etc/fusion/fusion.yaml")),
+    FileType::Config)?
+    .read()?)?;
 
   let mut conn = get_conn().await?;
 
@@ -72,7 +74,11 @@ async fn update_config(config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
         timeout: YamlParser::to_duration(data.get("timeout"))?,
         auth: data.get("auth").try_into()?,
         body: data.get("body").try_into()?,
-        fallback: YamlParser::to_json_option(data.get("fallback"))?,
+        fallback: if let Some(path) = YamlParser::to_string_option(data.get("fallback_file"))? {
+          Some(ConfigFile::new(&path, FileType::Fallback)?.read()?)
+        } else {
+          YamlParser::to_string_option_multiline(data.get("fallback"))?
+        }.map(|val| JsonValue::from_str(&val)).transpose()?,
       }
       .insert_or_update(&mut tran).await?;
     }
@@ -86,7 +92,11 @@ async fn update_config(config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
         path: YamlParser::to_string_req(data, "path")?,
         headers: YamlParser::to_hashmap_option(data.get("headers"))?.unwrap_or_default(),
         is_auth: YamlParser::to_bool_option(data.get("is_auth"))?.unwrap_or_default(),
-        filter: YamlParser::to_string_option_multiline(data.get("filter"))?,
+        filter: if let Some(path) = YamlParser::to_string_option(data.get("filter_file"))? {
+          Some(ConfigFile::new(&path, FileType::Filter)?.read()?)
+        } else {
+          YamlParser::to_string_option_multiline(data.get("filter"))?
+        },
       }
       .insert_or_update(&mut tran).await?;
 
