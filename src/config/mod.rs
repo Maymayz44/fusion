@@ -90,6 +90,7 @@ async fn update_config(config: YamlValue, hash: Vec<u8>) -> Result<(), Error> {
         id: None,
         code: YamlParser::to_string(code)?,
         path: YamlParser::to_string_req(data, "path")?,
+        is_active: YamlParser::to_bool_option(data.get("is_active"))?.unwrap_or_default(),
         headers: YamlParser::to_hashmap_option(data.get("headers"))?.unwrap_or_default(),
         is_auth: YamlParser::to_bool_option(data.get("is_auth"))?.unwrap_or_default(),
         filter: if let Some(path) = YamlParser::to_string_option(data.get("filter_file"))? {

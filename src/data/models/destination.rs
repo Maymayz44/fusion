@@ -17,6 +17,7 @@ pub struct Destination {
   pub id: Option<i32>,
   pub code: String,
   pub path: String,
+  pub is_active: bool,
   pub headers: HashMap<String, String>,
   pub filter: Option<String>,
   pub is_auth: bool,
@@ -109,12 +110,13 @@ impl Queryable for Destination {
 
   async fn insert(&self, conn: &mut PgConnection) -> Result<Self, Error> {
     Ok(sqlx::query_as("
-      INSERT INTO destinations (code, path, headers, filter, is_auth)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO destinations (code, path, is_active, headers, filter, is_auth)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING destinations.*;
     ")
     .bind(&self.code)
     .bind(&self.path)
+    .bind(&self.is_active)
     .bind(Json(&self.headers))
     .bind(&self.filter)
     .bind(&self.is_auth)
@@ -126,13 +128,15 @@ impl Queryable for Destination {
     Ok(sqlx::query_as("
       UPDATE destinations
       SET path = $1,
-          headers = $2,
-          filter = $3,
-          is_auth = $4
-      WHERE destinations.code = $5
+          is_active = $2,
+          headers = $3,
+          filter = $4,
+          is_auth = $5
+      WHERE destinations.code = $6
       RETURNING destinations.*;
     ")
     .bind(&self.path)
+    .bind(&self.is_active)
     .bind(Json(&self.headers))
     .bind(&self.filter)
     .bind(&self.is_auth)
@@ -185,6 +189,7 @@ impl FromRow<'_, PgRow> for Destination {
       id: row.try_get("id")?,
       code: row.try_get("code")?,
       path: row.try_get("path")?,
+      is_active: row.try_get("is_active")?,
       headers: row.try_get::<Json<HashMap<String, String>>, _>("headers")?.0,
       filter: row.try_get("filter")?,
       is_auth: row.try_get("is_auth")?,

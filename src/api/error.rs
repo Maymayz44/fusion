@@ -13,18 +13,18 @@ use http::Error as HttpError;
 
 #[derive(Debug)]
 pub enum Error {
-  NotFound(()),
+  NotFound,
   BadRequest(String),
-  Unauthorized(()),
+  Unauthorized,
   InternalServerError(String),
 }
 
 impl IntoResponse for Error {
   fn into_response(self) -> axum::response::Response {
     match self {
-      Self::NotFound(()) => (StatusCode::NOT_FOUND, String::new()),
+      Self::NotFound => (StatusCode::NOT_FOUND, String::new()),
       Self::BadRequest(err) => (StatusCode::BAD_REQUEST, err),
-      Self::Unauthorized(()) => (StatusCode::UNAUTHORIZED, String::new()),
+      Self::Unauthorized => (StatusCode::UNAUTHORIZED, String::new()),
       Self::InternalServerError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
     }.into_response()
   }
@@ -33,7 +33,7 @@ impl IntoResponse for Error {
 impl From<DataError> for Error {
   fn from(value: DataError) -> Self {
     match value {
-      DataError::Database(SqlxError::RowNotFound) => Self::NotFound(()),
+      DataError::Database(SqlxError::RowNotFound) => Self::NotFound,
       _ => Self::InternalServerError(value.to_string())
     }
   }

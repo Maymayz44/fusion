@@ -25,6 +25,10 @@ pub async fn entrypoint(request: Request) -> Result<Response, Error> {
 
   let destination = Destination::select_by_path(path, &mut conn).await?;
 
+  if !destination.is_active{
+    return Err(Error::NotFound)
+  }
+
   if destination.is_auth {
     authorize(&request_parts.headers, &destination, &mut conn).await?;
   }
@@ -118,14 +122,14 @@ async fn authorize(headers: &HeaderMap, destination: &Destination, mut conn: &mu
       Regex::new(r"^Bearer\s\w{32}$")?
       .find_iter(headers
         .get("Authorization")
-        .ok_or(Error::Unauthorized(()))?.to_str()?).next()
-      .ok_or(Error::Unauthorized(()))?.as_str().split(' ').last()
-      .ok_or(Error::Unauthorized(()))?.to_owned()
+        .ok_or(Error::Unauthorized)?.to_str()?).next()
+      .ok_or(Error::Unauthorized)?.as_str().split(' ').last()
+      .ok_or(Error::Unauthorized)?.to_owned()
     ), &mut conn).await?
-    .ok_or(Error::Unauthorized(()))?;
+    .ok_or(Error::Unauthorized)?;
   
   if !destination.is_token_for(&token, &mut conn).await? {
-    return Err(Error::Unauthorized(()));
+    return Err(Error::Unauthorized);
   }
 
   Ok(())
