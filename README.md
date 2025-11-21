@@ -1,4 +1,4 @@
 
 # Fusion
 
-A simple API aggregator with jq templating.
+An API aggregator for fusing API requests into a single one.
